@@ -1,7 +1,7 @@
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub struct Token<'a> {
     pub token_type: TokenType,
-    source: &'a str,
+    pub source: &'a str,
     position: Position,
 }
 
