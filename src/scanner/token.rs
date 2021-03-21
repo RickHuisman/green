@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub struct Token<'a> {
     pub token_type: TokenType,
@@ -54,8 +56,29 @@ pub enum TokenType {
     String,
     Number,
 
+    // Keywords
+    Keyword(Keyword),
+
     Identifier,
 
     Line,
     EOF,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+pub enum Keyword {
+    Do,
+    End,
+}
+
+impl FromStr for Keyword {
+    type Err = ();
+
+    fn from_str(word: &str) -> Result<Self, Self::Err> {
+        match word {
+            "do" => Ok(Keyword::Do),
+            "end" => Ok(Keyword::End),
+            _ => Err(()),
+        }
+    }
 }

@@ -2,8 +2,6 @@ use crate::scanner::token::{TokenType, Token};
 use crate::parser::parser::EvalParser;
 use std::collections::HashMap;
 use crate::parser::ast::expr::{Expr, Literal, ExprKind, BinaryExpr, BinaryOperator};
-use std::marker::PhantomData;
-use crate::parser::ast::expr::ExprKind::Binary;
 
 pub trait PrefixParser {
     fn parse<'a>(&self, parser: &mut EvalParser, token: Token<'a>) -> Expr;
@@ -25,9 +23,12 @@ impl GrammarRules {
         let mut map = HashMap::new();
         map.insert(TokenType::Number, LiteralParser {});
 
-        println!("{:?}", token);
-
-        Some(Box::new(map[&token.token_type]))
+        if let Some(token_type) = map.get(&token.token_type) {
+            Some(Box::new(*token_type))
+        } else {
+            println!("No rule for token: {:?}", token);
+            None
+        }
     }
 
     pub fn get_infix_rule(&self, token: &Token) -> Option<Box<dyn InfixParser>> {
@@ -45,7 +46,12 @@ impl GrammarRules {
         map.insert(TokenType::LessThan, InfixOperatorParser::new(Precedence::Comparison));
         map.insert(TokenType::LessThanEqual, InfixOperatorParser::new(Precedence::Comparison));
 
-        Some(Box::new(map[&token.token_type]))
+        if let Some(token_type) = map.get(&token.token_type) {
+            Some(Box::new(*token_type))
+        } else {
+            println!("No rule for token: {:?}", token);
+            None
+        }
     }
 
     pub fn get_precedence(&self, token: &Token) -> Precedence {

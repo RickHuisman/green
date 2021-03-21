@@ -1,6 +1,6 @@
 use std::str::{CharIndices, FromStr};
 use std::iter::Peekable;
-use crate::scanner::token::{Token, TokenType, Position};
+use crate::scanner::token::{Token, TokenType, Position, Keyword};
 use crate::scanner::error::SyntaxError;
 
 pub struct Lexer<'a> {
@@ -15,9 +15,8 @@ impl<'a> Lexer<'a> {
         let mut lexer = Lexer { source, chars, line: 1 };
 
         let mut tokens = vec![];
-
         while !lexer.is_at_end() {
-            if let Some(token) = lexer.scan_token() {
+            if let Some(token) = lexer.read_token() {
                 tokens.push(token.unwrap());
             } else {
                 break;
@@ -27,7 +26,7 @@ impl<'a> Lexer<'a> {
         tokens
     }
 
-    fn scan_token(&mut self) -> Option<Result<Token<'a>, SyntaxError>> {
+    fn read_token(&mut self) -> Option<Result<Token<'a>, SyntaxError>> {
         self.skip_whitespace();
 
         let c = self.advance();
@@ -37,11 +36,11 @@ impl<'a> Lexer<'a> {
             }
             return None
         }
-        let (start, char) = c.unwrap();
+        let (start, char) = c?;
 
-        // if char.is_alphabetic() {
-        //     return Some(Ok(self.identifier(start)));
-        // }
+        if char.is_alphabetic() {
+            return Some(Ok(self.identifier(start)));
+        }
 
         if char.is_digit(10) {
             return Some(Ok(self.number(start)));
@@ -59,7 +58,10 @@ impl<'a> Lexer<'a> {
             '%' => TokenType::Percent,
             '/' => TokenType::Slash,
             '*' => TokenType::Star,
-            ';' | '\n' | '\r' => TokenType::Line,
+            ';' | '\n' | '\r' => {
+                self.skip_lines();
+                TokenType::Line
+            },
             '!' => {
                 if self.match_next('=') {
                     self.advance();
@@ -93,7 +95,7 @@ impl<'a> Lexer<'a> {
                 }
             },
             '"' => {
-                match self.string(start) {
+                match self.string() {
                     Ok(ty) => ty,
                     Err(err) => return Some(Err(err)),
                 }
@@ -105,32 +107,17 @@ impl<'a> Lexer<'a> {
         Some(Ok(self.make_token(start, token_type)))
     }
 
-    fn make_token(&mut self, start: usize, token_type: TokenType) -> Token<'a> {
-        let source = self.token_contents(start);
-        let position = Position::new(
-            start,
-            start + source.len(),
-            self.line
-        );
-        Token::new(token_type, source, position)
-    }
+    fn identifier(&mut self, start: usize) -> Token<'a> {
+        self.advance_while(|&c| c.is_alphanumeric());
 
-    fn skip_whitespace(&mut self) {
-        self.advance_while(|&c| c.is_whitespace());
-    }
+        let word = self.token_contents(start);
 
-    // fn identifier(&mut self, start: usize) -> Token {
-    //     self.advance_while(|&c| c.is_alphanumeric());
-    //
-    //     let word = self.token_contents(start);
-    //
-    //     let token_type = match Keyword::from_str(word) {
-    //         Ok(keyword) => TokenType::Keyword(keyword),
-    //         Err(_) => TokenType::Identifier,
-    //     };
-    //
-    //     self.make_token(start, token_type)
-    // }
+        let token_type = Keyword::from_str(word)
+            .map(TokenType::Keyword)
+            .unwrap_or(TokenType::Identifier);
+
+        self.make_token(start, token_type)
+    }
 
     fn number(&mut self, start: usize) -> Token<'a> {
         loop {
@@ -165,16 +152,34 @@ impl<'a> Lexer<'a> {
         self.make_token(start, TokenType::Number)
     }
 
-    fn string(&mut self, start: usize) -> Result<TokenType, SyntaxError> {
+    fn string(&mut self) -> Result<TokenType, SyntaxError> {
         self.advance_while(|&c| c != '"');
         if self.is_at_end() {
             return Err(SyntaxError::UnterminatedString);
         }
 
         // Consume the '"'
-        self.advance().unwrap();
+        self.advance();
 
         Ok(TokenType::String)
+    }
+
+    fn make_token(&mut self, start: usize, token_type: TokenType) -> Token<'a> {
+        let source = self.token_contents(start);
+        let position = Position::new(
+            start,
+            start + source.len(),
+            self.line
+        );
+        Token::new(token_type, source, position)
+    }
+
+    fn skip_whitespace(&mut self) {
+        self.advance_while(|&c| c == ' ' || c == '\t');
+    }
+
+    fn skip_lines(&mut self) {
+        self.advance_while(|&c| c == ';' || c == '\n' || c == '\r');
     }
 
     fn eof(&mut self) -> Token<'a> {
@@ -242,6 +247,20 @@ mod tests {
     use super::Lexer;
     use crate::scanner::token::{Token, TokenType, Position};
 
+    #[test]
+    fn collapse_lines_into_line() {
+        let input = r#"
+
+
+
+        "#;
+
+        let tokens = Lexer::parse(input);
+        for token in tokens {
+            println!("{:?}", token);
+        }
+    }
+
     // #[test]
     // fn test_number() {
     //     let expect = vec![
@@ -256,6 +275,19 @@ mod tests {
     //
     //     assert_eq!(expect, tokens);
     // }
+
+    #[test]
+    fn it_works() {
+        let input = r#"do
+            10 + 5
+        end
+        "#;
+
+        let tokens = Lexer::parse(input);
+        for token in tokens {
+            println!("{:?}", token);
+        }
+    }
 
     #[test]
     fn test_string() {

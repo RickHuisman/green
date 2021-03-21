@@ -1,8 +1,15 @@
 use crate::scanner::token::{Token, TokenType};
+use std::fmt::Display;
 
 #[derive(PartialEq, Debug)]
 pub struct Expr {
     pub node: ExprKind,
+}
+
+impl Display for Expr {
+    fn fmt (&self, fmt: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
+        write!(fmt, "test")
+    }
 }
 
 impl Expr {
@@ -15,6 +22,7 @@ impl Expr {
 pub enum ExprKind {
     Literal(Literal),
     Binary(BinaryExpr),
+    Block(BlockExpr)
     //Var(Variable, Expr)
 }
 
@@ -70,6 +78,17 @@ impl BinaryOperator {
             TokenType::GreaterThanEqual => BinaryOperator::GreaterThanEqual,
             _ => panic!("TODO") // TODO
         }
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct BlockExpr {
+    pub expressions: Vec<Expr>
+}
+
+impl BlockExpr {
+    pub fn new(expressions: Vec<Expr>) -> Self {
+        BlockExpr { expressions }
     }
 }
 
