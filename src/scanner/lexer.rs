@@ -261,27 +261,22 @@ mod tests {
         }
     }
 
-    // #[test]
-    // fn test_number() {
-    //     let expect = vec![
-    //         Token::new(TokenType::Number(5.0), "5", Position::new(0, 0, 0)),
-    //         Token::new(TokenType::Number(10.0), "10", Position::new(0, 0, 0)),
-    //         Token::new(TokenType::Number(2.0), "2", Position::new(0, 0, 0)),
-    //         Token::new(TokenType::EOF, "", Position::new(0, 0, 0)),
-    //     ];
-    //     let input = "5 10 2";
-    //
-    //     let tokens = Lexer::parse(input);
-    //
-    //     assert_eq!(expect, tokens);
-    // }
-
     #[test]
     fn it_works() {
         let input = r#"do
             10 + 5
         end
         "#;
+
+        let tokens = Lexer::parse(input);
+        for token in tokens {
+            println!("{:?}", token);
+        }
+    }
+
+    #[test]
+    fn parse_var() {
+        let input = "var x = if y == 10 then true else false";
 
         let tokens = Lexer::parse(input);
         for token in tokens {
@@ -305,85 +300,4 @@ mod tests {
 
         assert_eq!(expect, tokens);
     }
-
-//
-//     #[test]
-//     fn break_statement() {
-//         let expect = vec![
-//             Token::new(TokenType::Keyword(While), "while".to_string()),
-//             Token::new(TokenType::LeftParen, "(".to_string()),
-//             Token::new(TokenType::Keyword(True), "true".to_string()),
-//             Token::new(TokenType::RightParen, ")".to_string()),
-//             Token::new(TokenType::LeftBrace, "{".to_string()),
-//             Token::new(TokenType::Keyword(Break), "break".to_string()),
-//             Token::new(TokenType::Semicolon, ";".to_string()),
-//             Token::new(TokenType::RightBrace, "}".to_string()),
-//             Token::new(TokenType::EOF, "".to_string()),
-//         ];
-//         let input = r#"
-//         while (true) {
-//             break;
-//         }
-//         "#;
-//
-//         let mut lexer = Lexer::new(input);
-//         let tokens = lexer.parse();
-//
-//         assert_eq!(expect, tokens);
-//     }
-//
-//     #[test]
-//     fn test_block() {
-//         let expect = vec![
-//             Token::new(TokenType::LeftBrace, "{".to_string()),
-//             Token::new(TokenType::Keyword(Keyword::Var), "var".to_string()),
-//             Token::new(TokenType::Identifier, "x".to_string()),
-//             Token::new(TokenType::Equal, "=".to_string()),
-//             Token::new(TokenType::Number(10.0), "10".to_string()),
-//             Token::new(TokenType::Semicolon, ";".to_string()),
-//             Token::new(TokenType::RightBrace, "}".to_string()),
-//             Token::new(TokenType::Keyword(Keyword::Print), "print".to_string()),
-//             Token::new(TokenType::Identifier, "x".to_string()),
-//             Token::new(TokenType::Semicolon, ";".to_string()),
-//             Token::new(TokenType::EOF, "".to_string()),
-//         ];
-//         let input = r#"
-//         {
-//             var x = 10;
-//         }
-//         print x;
-//         "#;
-//
-//         let mut lexer = Lexer::new(input);
-//         let tokens = lexer.parse();
-//
-//         assert_eq!(expect, tokens);
-//     }
-//
-//     #[test]
-//     fn test_modulo() {
-//         let expect = vec![
-//             Token::new(TokenType::Number(10.0), "10".to_string()),
-//             Token::new(TokenType::Percent, "%".to_string()),
-//             Token::new(TokenType::Number(3.0), "3".to_string()),
-//             Token::new(TokenType::EOF, "".to_string()),
-//         ];
-//         let input = "10 % 3";
-//
-//         let mut lexer = Lexer::new(input);
-//         let tokens = lexer.parse();
-//
-//         assert_eq!(expect, tokens);
-//     }
-//
-//     #[test]
-//     fn unclosed_string() {
-//         let input = "\"Hello, World!\"";
-//         let mut lexer = Lexer::new(input);
-//
-//         match lexer.next().unwrap().unwrap_err() {
-//             SyntaxError::UnterminatedString => (),
-//             _ => panic!("Expected SyntaxError::UnterminatedString"),
-//         };
-//     }
 }

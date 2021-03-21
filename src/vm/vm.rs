@@ -1,6 +1,6 @@
 use crate::compiler::chunk::Chunk;
 use crate::compiler::value::Value;
-use crate::compiler::Opcode::Opcode;
+use crate::compiler::opcode::Opcode;
 
 pub struct VM {
     ip: usize,
@@ -29,6 +29,12 @@ impl VM {
                 Opcode::Subtract => self.subtract(),
                 Opcode::Multiply => self.multiply(),
                 Opcode::Divide => self.divide(),
+                Opcode::Print => self.print(),
+                Opcode::Equal => self.equal(),
+                Opcode::Greater => self.greater(),
+                Opcode::Less => self.less(),
+                Opcode::Not => self.not(),
+                _ => todo!(),
             }
         }
     }
@@ -60,6 +66,38 @@ impl VM {
         let b = self.pop();
         let a = self.pop();
         self.push(a / b);
+    }
+
+    fn equal(&mut self) {
+        let b = self.pop();
+        let a = self.pop();
+        self.push((a == b).into());
+    }
+
+    fn greater(&mut self) {
+        let b = self.pop();
+        let a = self.pop();
+        self.push((a > b).into());
+    }
+
+    fn less(&mut self) {
+        let b = self.pop();
+        let a = self.pop();
+        self.push((a > b).into());
+    }
+
+    fn not(&mut self) {
+        let a = self.pop();
+        if a.truthy() {
+            self.push(Value::False);
+        } else {
+            self.push(Value::True);
+        }
+    }
+
+    fn print(&mut self) {
+        let popped = self.pop();
+        println!("{:?}", popped); // TODO should not pop value of stack
     }
 
     fn read_constant(&mut self, chunk: &Chunk) -> Value {

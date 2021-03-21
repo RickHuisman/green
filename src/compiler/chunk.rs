@@ -1,7 +1,7 @@
 use crate::compiler::value::Value;
 use std::fmt::{Display, Formatter};
 use std::fmt;
-use crate::compiler::Opcode::Opcode;
+use crate::compiler::opcode::Opcode;
 
 pub struct Chunk {
     code: Vec<u8>,
@@ -75,6 +75,11 @@ fn disassemble_instruction(f: &mut Formatter<'_>, chunk: &Chunk, offset: &mut us
         Opcode::Subtract => simple_instruction(f, "OP_SUBTRACT", offset),
         Opcode::Multiply => simple_instruction(f, "OP_MULTIPLY", offset),
         Opcode::Divide => simple_instruction(f, "OP_DIVIDE", offset),
+        Opcode::Print => simple_instruction(f, "OP_PRINT", offset),
+        Opcode::Equal => simple_instruction(f, "OP_EQUAL", offset),
+        Opcode::Greater => simple_instruction(f, "OP_GREATER", offset),
+        Opcode::Less => simple_instruction(f, "OP_LESS", offset),
+        Opcode::Not => simple_instruction(f, "OP_NOT", offset),
     }
 }
 
@@ -91,6 +96,6 @@ fn constant_instruction(
 ) -> usize {
     let constant = chunk.code()[*offset + 1];
     write!(f, "{:-16} {:4} ", name, constant);
-    writeln!(f, "'{}'", chunk.constants()[constant as usize]);
+    writeln!(f, "'{:?}'", chunk.constants()[constant as usize]);
     *offset + 2
 }

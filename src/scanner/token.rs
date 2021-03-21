@@ -67,8 +67,15 @@ pub enum TokenType {
 
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub enum Keyword {
+    Print,
     Do,
     End,
+    Var,
+    If,
+    Else,
+    Then,
+    True,
+    False,
 }
 
 impl FromStr for Keyword {
@@ -76,8 +83,15 @@ impl FromStr for Keyword {
 
     fn from_str(word: &str) -> Result<Self, Self::Err> {
         match word {
+            "print" => Ok(Keyword::Print),
             "do" => Ok(Keyword::Do),
             "end" => Ok(Keyword::End),
+            "var" => Ok(Keyword::Var),
+            "if" => Ok(Keyword::If),
+            "else" => Ok(Keyword::Else),
+            "then" => Ok(Keyword::Then),
+            "true" => Ok(Keyword::True),
+            "false" => Ok(Keyword::False),
             _ => Err(()),
         }
     }

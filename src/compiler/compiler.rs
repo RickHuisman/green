@@ -1,0 +1,76 @@
+use crate::parser::ast::expr::{Expr, ExprKind, LiteralExpr, BinaryExpr, BinaryOperator};
+use crate::compiler::opcode::Opcode;
+use crate::compiler::value::Value;
+use crate::compiler::chunk::Chunk;
+
+pub struct Compiler {
+    chunk: Chunk,
+}
+
+impl Compiler {
+    pub fn compile(exprs: Vec<Expr>) -> Chunk {
+        let mut compiler = Compiler { chunk: Chunk::new() };
+
+        for expr in exprs {
+            compiler.compile_expr(expr);
+        }
+
+        compiler.chunk
+    }
+
+    fn compile_expr(&mut self, expr: Expr) {
+        match *expr.node {
+            ExprKind::Literal(literal) => self.compile_literal(literal),
+            ExprKind::Binary(binary) => self.compile_binary(binary),
+            ExprKind::Block(_) => todo!(),
+            ExprKind::Print(print) => self.compile_print(print),
+        }
+    }
+
+    fn compile_binary(&mut self, binary: BinaryExpr) {
+        self.compile_expr(*binary.lhs);
+        self.compile_expr(*binary.rhs);
+
+        match binary.operator {
+            BinaryOperator::Add => self.emit(Opcode::Add),
+            BinaryOperator::Subtract => self.emit(Opcode::Subtract),
+            BinaryOperator::Multiply => self.emit(Opcode::Multiply),
+            BinaryOperator::Divide => self.emit(Opcode::Divide),
+            BinaryOperator::Equal => {
+            }
+            BinaryOperator::BangEqual => {}
+            BinaryOperator::GreaterThan => {}
+            BinaryOperator::GreaterThanEqual => {}
+            BinaryOperator::LessThan => {}
+            BinaryOperator::LessThanEqual => {}
+        }
+    }
+
+    fn compile_print(&mut self, expr: Expr) {
+        self.compile_expr(expr);
+        self.emit(Opcode::Print);
+    }
+
+    fn compile_literal(&mut self, literal: LiteralExpr) {
+        match literal {
+            LiteralExpr::Number(n) => self.emit_constant(Value::Number(n)),
+            LiteralExpr::String(s) => todo!(),
+            LiteralExpr::True => todo!(),
+            LiteralExpr::False => todo!(),
+        }
+    }
+
+    fn emit_constant(&mut self, value: Value) {
+        let constant = self.chunk.add_constant(value);
+        self.emit(Opcode::Constant);
+        self.emit_byte(constant);
+    }
+
+    fn emit(&mut self, opcode: Opcode) {
+        self.chunk.write(opcode, 123); // TODO Line
+    }
+
+    fn emit_byte(&mut self, byte: u8) {
+        self.chunk.write_byte(byte);
+    }
+}

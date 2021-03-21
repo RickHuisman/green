@@ -1,7 +1,7 @@
 use crate::scanner::token::{TokenType, Token};
 use crate::parser::parser::EvalParser;
 use std::collections::HashMap;
-use crate::parser::ast::expr::{Expr, Literal, ExprKind, BinaryExpr, BinaryOperator};
+use crate::parser::ast::expr::{Expr, LiteralExpr, ExprKind, BinaryExpr, BinaryOperator};
 
 pub trait PrefixParser {
     fn parse<'a>(&self, parser: &mut EvalParser, token: Token<'a>) -> Expr;
@@ -89,12 +89,12 @@ impl PrefixParser for LiteralParser {
     fn parse<'a>(&self, parser: &mut EvalParser, token: Token<'a>) -> Expr {
         let op = match token.token_type {
             TokenType::Number => {
-                Literal::Number(token.source.parse::<f64>().unwrap())
+                LiteralExpr::Number(token.source.parse::<f64>().unwrap())
             }
-            TokenType::String => Literal::String(token.source.to_string()), // TODO
+            TokenType::String => LiteralExpr::String(token.source.to_string()), // TODO
             _ => panic!("TODO") // TODO
         };
-        Expr { node: ExprKind::Literal(op) }
+        Expr::new(ExprKind::Literal(op))
     }
 }
 

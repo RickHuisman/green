@@ -3,7 +3,7 @@ use std::fmt::Display;
 
 #[derive(PartialEq, Debug)]
 pub struct Expr {
-    pub node: ExprKind,
+    pub node: Box<ExprKind>,
 }
 
 impl Display for Expr {
@@ -14,20 +14,20 @@ impl Display for Expr {
 
 impl Expr {
     pub fn new(node: ExprKind) -> Expr {
-        Expr { node }
+        Expr { node: Box::new(node) }
     }
 }
 
 #[derive(PartialEq, Debug)]
 pub enum ExprKind {
-    Literal(Literal),
+    Literal(LiteralExpr),
     Binary(BinaryExpr),
-    Block(BlockExpr)
-    //Var(Variable, Expr)
+    Block(BlockExpr),
+    Print(Expr),
 }
 
 #[derive(PartialEq, Debug)]
-pub enum Literal {
+pub enum LiteralExpr {
     Number(f64),
     String(String), // TODO Make &'a str
     True,
@@ -68,7 +68,6 @@ impl BinaryOperator {
             TokenType::Plus => BinaryOperator::Add,
             TokenType::Star => BinaryOperator::Multiply,
             TokenType::Slash => BinaryOperator::Divide,
-            // TokenType::Bang => BinaryOperator::Ba TODO ???
             TokenType::BangEqual => BinaryOperator::BangEqual,
             TokenType::Equal => BinaryOperator::Equal,
             TokenType::EqualEqual => BinaryOperator::Equal,
@@ -76,7 +75,7 @@ impl BinaryOperator {
             TokenType::LessThanEqual => BinaryOperator::LessThanEqual,
             TokenType::GreaterThan => BinaryOperator::GreaterThan,
             TokenType::GreaterThanEqual => BinaryOperator::GreaterThanEqual,
-            _ => panic!("TODO") // TODO
+            _ => todo!() // TODO
         }
     }
 }
@@ -91,7 +90,3 @@ impl BlockExpr {
         BlockExpr { expressions }
     }
 }
-
-// struct Variable {
-//
-// }

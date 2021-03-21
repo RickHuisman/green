@@ -52,7 +52,7 @@ impl<'a> EvalParser<'a> {
 
         let mut eval_parser = EvalParser {
             parser: Parser::new(tokens),
-            grammar: GrammarRules {}
+            grammar: GrammarRules {},
         };
 
         let mut exprs = vec![];
@@ -70,6 +70,7 @@ impl<'a> EvalParser<'a> {
     // Eval doesn't have statements but "top-level" expressions.
     fn parse_statement(&mut self) -> Expr {
         match self.parser.peek_type() {
+            TokenType::Keyword(Keyword::Print) => self.parse_print(),
             TokenType::Keyword(Keyword::Do) => self.parse_do(),
             _ => self.parse_expression()
         }
@@ -118,6 +119,10 @@ impl<'a> EvalParser<'a> {
         }
 
         test
+    }
+
+    fn parse_print(&mut self) -> Expr {
+        Expr::new(ExprKind::Print(self.parse_expression()))
     }
 
     fn parse_do(&mut self) -> Expr {
