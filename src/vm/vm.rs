@@ -1,15 +1,19 @@
 use crate::compiler::chunk::Chunk;
 use crate::compiler::value::Value;
 use crate::compiler::opcode::Opcode;
+use std::collections::HashMap;
+use crate::compiler::object::Object;
 
 pub struct VM {
     ip: usize,
+    stack_top: usize,
     stack: Vec<Value>,
+    globals: HashMap<String, Value>,
 }
 
 impl VM {
-    pub fn new() -> VM {
-        VM { ip: 0, stack: vec![] }
+    pub fn new() -> Self {
+        VM { ip: 0, stack_top: 0, stack: vec![], globals: HashMap::new() }
     }
 
     pub fn interpret(&mut self, chunk: &Chunk) {
@@ -32,6 +36,8 @@ impl VM {
                 Opcode::Less => self.less(),
                 Opcode::Not => self.not(),
                 Opcode::Negate => self.negate(),
+                Opcode::DefineGlobal => self.define_global(chunk),
+                Opcode::GetGlobal => self.get_global(chunk),
             }
         }
     }
@@ -98,6 +104,39 @@ impl VM {
         self.push(-a);
     }
 
+    fn define_global(&mut self, chunk: &Chunk) {
+        // FIXME
+        let name = self.read_constant(chunk);
+        match name {
+            Value::Obj(s) => {
+                match s {
+                    Object::String(s) => {
+                        let val = self.peek(0);
+                        self.globals.insert(s, val);
+                        self.pop();
+                    }
+                }
+            }
+            _ => panic!("TODO")
+        }
+    }
+
+    fn get_global(&mut self, chunk: &Chunk) {
+        // FIXME
+        let name = self.read_constant(chunk);
+        match name {
+            Value::Obj(s) => {
+                match s {
+                    Object::String(s) => {
+                        let value = self.globals.get(&s).cloned();
+                        self.push(value.unwrap());
+                    }
+                }
+            }
+            _ => panic!("TODO")
+        }
+    }
+
     fn print(&mut self) {
         let popped = self.pop(); // TODO should not pop value of stack because it's an expression
         println!("{:?}", popped); // TODO Implement display for Value enum
@@ -110,7 +149,7 @@ impl VM {
 
     fn read_byte(&mut self, chunk: &Chunk) -> u8 {
         let byte = chunk.code()[self.ip];
-        self.ip += 1;
+        self.ip = self.ip + 1;
         byte
     }
 
@@ -119,10 +158,16 @@ impl VM {
     }
 
     fn push(&mut self, value: Value) {
+        self.stack_top += 1;
         self.stack.push(value);
     }
 
+    fn peek(&mut self, offset: usize) -> Value {
+        self.stack[self.stack_top - 1 - offset].clone()
+    }
+
     fn pop(&mut self) -> Value {
+        self.stack_top -= 1;
         self.stack.pop().expect("Failed to pop value from stack")
     }
 }

@@ -81,6 +81,8 @@ fn disassemble_instruction(f: &mut Formatter<'_>, chunk: &Chunk, offset: &mut us
         Opcode::Less => simple_instruction(f, "OP_LESS", offset),
         Opcode::Not => simple_instruction(f, "OP_NOT", offset),
         Opcode::Negate => simple_instruction(f, "OP_NOT", offset),
+        Opcode::DefineGlobal => constant_instruction(chunk, f, "OP_DEFINE_GLOBAL", offset),
+        Opcode::GetGlobal => constant_instruction(chunk, f, "OP_GET_GLOBAL", offset),
     }
 }
 

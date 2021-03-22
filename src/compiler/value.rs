@@ -68,7 +68,7 @@ impl Mul for Value {
     fn mul(self, other: Self) -> Self::Output {
         if let Value::Number(b) = self {
             if let Value::Number(a) = other {
-                Value::Number(a * b)
+                Value::Number(b * a)
             } else {
                 panic!("Operand must be a number.");
             }
@@ -84,7 +84,7 @@ impl Div for Value {
     fn div(self, other: Self) -> Self::Output {
         if let Value::Number(b) = self {
             if let Value::Number(a) = other {
-                Value::Number(a / b)
+                Value::Number(b / a)
             } else {
                 panic!("Operand must be a number.");
             }

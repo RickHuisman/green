@@ -1,1 +1,2 @@
-print("test")
+var x = 10 * 2 / 2
+print(x + 2)

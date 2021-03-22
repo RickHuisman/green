@@ -85,7 +85,11 @@ impl Compiler {
     }
 
     fn compile_declare_var(&mut self, var: VarAssignExpr) {
-        todo!()
+        self.compile_expr(var.initializer);
+
+        self.emit(Opcode::DefineGlobal);
+        let constant_id = self.chunk.add_constant(Value::Obj(var.variable.name.into()));
+        self.emit_byte(constant_id);
     }
 
     fn compile_set_var(&mut self, var: VarSetExpr) {
@@ -93,17 +97,23 @@ impl Compiler {
     }
 
     fn compile_get_var(&mut self, var: VarGetExpr) {
-        todo!()
+        self.emit(Opcode::GetGlobal);
+        let constant_id = self.chunk.add_constant(Value::Obj(var.variable.name.into()));
+        self.emit_byte(constant_id);
     }
 
     fn compile_literal(&mut self, literal: LiteralExpr) {
         match literal {
             LiteralExpr::Number(n) => self.emit_constant(Value::Number(n)),
-            LiteralExpr::String(s) => self.emit_constant(Value::Obj(s.into())),
+            LiteralExpr::String(s) => self.emit_string(&s),
             LiteralExpr::True => todo!(),
             LiteralExpr::False => todo!(),
             _ => todo!() // TODO NilLiteral
         }
+    }
+
+    fn emit_string(&mut self, s: &str) {
+        self.emit_constant(Value::Obj(s.into()));
     }
 
     fn emit_constant(&mut self, value: Value) {
