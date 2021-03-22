@@ -23,6 +23,7 @@ impl GrammarRules {
         // TODO Fix this mess.
         let mut map = HashMap::new();
         map.insert(TokenType::Number, LiteralParser {});
+        map.insert(TokenType::String, LiteralParser {});
 
         let mut map2 = HashMap::new();
         map2.insert(TokenType::LeftParen, GroupingParser {});

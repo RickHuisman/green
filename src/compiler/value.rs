@@ -1,13 +1,14 @@
 use std::ops::{Add, Sub, Mul, Div, Neg};
 use std::cmp::Ordering;
+use crate::compiler::object::Object;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub enum Value {
     Number(f64),
     True,
     False,
     Nil, // TODO Does Eval lang use nils???
-    // TODO Object
+    Obj(Object)
 }
 
 impl From<Value> for bool {

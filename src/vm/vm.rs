@@ -104,7 +104,8 @@ impl VM {
     }
 
     fn read_constant(&mut self, chunk: &Chunk) -> Value {
-        chunk.constants()[self.read_byte(chunk) as usize]
+        let constant_index = self.read_byte(chunk);
+        chunk.constants()[constant_index as usize].clone()
     }
 
     fn read_byte(&mut self, chunk: &Chunk) -> u8 {
