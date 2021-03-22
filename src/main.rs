@@ -12,60 +12,21 @@ mod compiler;
 mod vm;
 
 fn main() {
-    // let mut chunk = Chunk::new();
-    //
-    // let c1 = chunk.add_constant(1.2);
-    // chunk.write(Opcode::Constant, 123);
-    // chunk.write_byte(c1);
-    //
-    // chunk.write(Opcode::Return, 123);
-    //
-    // println!("{}", chunk);
+    let source = get_file_contents(
+        "/Users/rickhuisman/Documents/rust/eval/src/test.txt"
+    );
+    run(&source.unwrap());
+}
 
-    // let tokens = Lexer::parse("5 + 10");
-    // println!("{:?}", tokens);
-
-    // let input = r#"print(10)"#;
-    //
-    // // let input = r#"5 + 10 * 2"#;
-    // let exprs = EvalParser::parse(input);
-    // println!("{:?}", exprs);
-
-    // let exprs = vec![
-    //     Expr::new(
-    //         ExprKind::Print(
-    //             Expr::new(
-    //             //     ExprKind::Binary(
-    //             //         BinaryExpr::new(
-    //             //             Expr::new(ExprKind::Literal(LiteralExpr::Number(40.0))),
-    //             //             Expr::new(ExprKind::Literal(LiteralExpr::Number(10.0))),
-    //             //             BinaryOperator::Add,
-    //             //         )
-    //             //     )
-    //             //     ExprKind::Literal(LiteralExpr::Number(40.0))
-    //                 ExprKind::Unary(
-    //                         UnaryExpr::new(
-    //                             Expr::new(ExprKind::Literal(LiteralExpr::Number(40.0))),
-    //                             UnaryOperator::Negate
-    //                         )
-    //                 )
-    //                 // ExprKind::Literal(LiteralExpr::Number(40.0))
-    //             )
-    //         )
-    //     ),
-    // ];
-
-    let input = r#"
-        do
-            print(10)
-            print(10 * 2)
-        end
-"#;
-
-    let exprs = EvalParser::parse(input);
+fn run(source: &str) {
+    let exprs = EvalParser::parse(source);
 
     let chunk = Compiler::compile(exprs);
     println!("{}", chunk);
     let mut vm = VM::new();
     vm.interpret(&chunk);
+}
+
+fn get_file_contents(path: &str) -> std::io::Result<String> {
+    std::fs::read_to_string(path)
 }

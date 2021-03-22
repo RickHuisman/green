@@ -1,6 +1,6 @@
 use crate::scanner::token::{Token, TokenType};
 use std::fmt::Display;
-use crate::parser::ast::expr::ExprKind::Grouping;
+use crate::parser::ast::expr::ExprKind::{Grouping, VarGet};
 
 #[derive(PartialEq, Debug)]
 pub struct Expr {
@@ -25,6 +25,9 @@ pub enum ExprKind {
     Binary(BinaryExpr),
     Unary(UnaryExpr),
     Block(BlockExpr),
+    VarAssign(VarAssignExpr),
+    VarSet(VarSetExpr),
+    VarGet(VarGetExpr),
     Print(Expr), // TODO Box<Expr>???
     Grouping(GroupingExpr),
 }
@@ -35,6 +38,7 @@ pub enum LiteralExpr {
     String(String), // TODO Make &'a str
     True,
     False,
+    Nil, // TODO Nil???
 }
 
 #[derive(PartialEq, Debug)]
@@ -120,5 +124,51 @@ pub struct GroupingExpr {
 impl GroupingExpr {
     pub fn new(expr: Expr) -> Self {
         GroupingExpr { expr: Box::new(expr) }
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct VarAssignExpr {
+    pub variable: Variable,
+    pub initializer: Expr, // TODO Box???
+}
+
+impl VarAssignExpr {
+    pub fn new(variable: Variable, initializer: Expr) -> Self {
+        VarAssignExpr { variable, initializer }
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct VarSetExpr {
+    pub variable: Variable,
+    pub initializer: Expr, // TODO Box???
+}
+
+impl VarSetExpr {
+    pub fn new(variable: Variable, initializer: Expr) -> Self {
+        VarSetExpr { variable, initializer }
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct VarGetExpr {
+    pub variable: Variable,
+}
+
+impl VarGetExpr {
+    pub fn new(variable: Variable) -> Self {
+        VarGetExpr { variable }
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct Variable {
+    pub name: String, // TODO Make &str
+}
+
+impl Variable {
+    pub fn new(name: String) -> Self {
+        Variable { name }
     }
 }

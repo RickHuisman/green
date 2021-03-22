@@ -20,11 +20,15 @@ impl GrammarRules {
     }
 
     pub fn get_prefix_rule(&self, token: &Token) -> Option<Box<dyn PrefixParser>> {
+        // TODO Fix this mess.
         let mut map = HashMap::new();
         map.insert(TokenType::Number, LiteralParser {});
 
         let mut map2 = HashMap::new();
         map2.insert(TokenType::LeftParen, GroupingParser {});
+
+        let mut map3 = HashMap::new();
+        map3.insert(TokenType::Identifier, IdentifierParser {});
 
         if let Some(token_type) = map.get(&token.token_type) {
             Some(Box::new(map[&token.token_type]))
@@ -32,8 +36,12 @@ impl GrammarRules {
             if let Some(token_type) = map2.get(&token.token_type) {
                 Some(Box::new(map2[&token.token_type]))
             } else {
-                println!("No rule for token: {:?}", token);
-                None
+                if let Some(token_type) = map3.get(&token.token_type) {
+                    Some(Box::new(map3[&token.token_type]))
+                } else {
+                    println!("No rule for token: {:?}", token);
+                    None
+                }
             }
         }
     }
@@ -113,6 +121,15 @@ impl PrefixParser for GroupingParser {
         let expr = parser.parse_expression();
         parser.parser.expect(TokenType::RightParen);
         Expr::new(ExprKind::Grouping(GroupingExpr::new(expr)))
+    }
+}
+
+#[derive(Copy, Clone)]
+struct IdentifierParser {}
+
+impl PrefixParser for IdentifierParser {
+    fn parse<'a>(&self, parser: &mut EvalParser, token: Token<'a>) -> Expr {
+        parser.parse_var(token)
     }
 }
 

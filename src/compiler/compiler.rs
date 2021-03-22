@@ -1,4 +1,4 @@
-use crate::parser::ast::expr::{Expr, ExprKind, LiteralExpr, BinaryExpr, BinaryOperator, UnaryExpr, UnaryOperator, BlockExpr, GroupingExpr};
+use crate::parser::ast::expr::{Expr, ExprKind, LiteralExpr, BinaryExpr, BinaryOperator, UnaryExpr, UnaryOperator, BlockExpr, GroupingExpr, VarSetExpr, VarGetExpr, VarAssignExpr};
 use crate::compiler::opcode::Opcode;
 use crate::compiler::value::Value;
 use crate::compiler::chunk::Chunk;
@@ -26,6 +26,9 @@ impl Compiler {
             ExprKind::Block(block) => self.compile_block(block),
             ExprKind::Print(print) => self.compile_print(print),
             ExprKind::Grouping(grouping) => self.compile_grouping(grouping),
+            ExprKind::VarAssign(var) => self.declare_var(var),
+            ExprKind::VarSet(var) => self.compile_set_var(var),
+            ExprKind::VarGet(var) => self.compile_get_var(var),
         }
     }
 
@@ -80,12 +83,25 @@ impl Compiler {
         self.compile_expr(*grouping.expr);
     }
 
+    fn declare_var(&mut self, var: VarAssignExpr) { // TODO Rename
+
+    }
+
+    fn compile_set_var(&mut self, var: VarSetExpr) {
+
+    }
+
+    fn compile_get_var(&mut self, var: VarGetExpr) {
+
+    }
+
     fn compile_literal(&mut self, literal: LiteralExpr) {
         match literal {
             LiteralExpr::Number(n) => self.emit_constant(Value::Number(n)),
             LiteralExpr::String(s) => todo!(),
             LiteralExpr::True => todo!(),
             LiteralExpr::False => todo!(),
+            _ => todo!() // TODO NilLiteral
         }
     }
 

@@ -1,7 +1,7 @@
 use crate::scanner::lexer::Lexer;
 use crate::scanner::token::{Token, TokenType, Keyword, Position};
 use crate::parser::rule::{GrammarRules, Precedence};
-use crate::parser::ast::expr::{Expr, ExprKind, BlockExpr};
+use crate::parser::ast::expr::{Expr, ExprKind, BlockExpr, LiteralExpr, Variable, VarSetExpr, VarGetExpr, VarAssignExpr};
 use crate::parser::ast::expr::ExprKind::{Literal, Block};
 use crate::scanner::token::TokenType::Line;
 use std::any::Any;
@@ -86,6 +86,7 @@ impl<'a> EvalParser<'a> {
     fn parse_top_level_expression(&mut self) -> Expr {
         match self.parser.peek_type() {
             TokenType::Keyword(Keyword::Print) => self.parse_print(),
+            TokenType::Keyword(Keyword::Var) => self.declare_var(),
             TokenType::Keyword(Keyword::Do) => self.parse_do(),
             _ => self.parse_expression()
         }
@@ -141,6 +142,40 @@ impl<'a> EvalParser<'a> {
         Expr::new(ExprKind::Print(self.parse_expression()))
     }
 
+    fn declare_var(&mut self) -> Expr {
+        self.parser.expect(TokenType::Keyword(Keyword::Var));
+
+        let identifier = self.parser.expect(TokenType::Identifier);
+        let var = Variable::new(identifier.source.to_string());
+
+        let mut initializer = Expr::new(ExprKind::Literal(LiteralExpr::Nil));
+
+        // Var has initializer
+        if self.parser.match_(TokenType::Equal) {
+            // Pop '=' operator
+            self.parser.consume();
+
+            initializer = self.parse_expression();
+        }
+
+        Expr::new(ExprKind::VarAssign(VarAssignExpr::new(var, initializer)))
+    }
+
+    pub fn parse_var(&mut self, identifier: Token) -> Expr {
+        let var = Variable::new(identifier.source.to_string());
+
+        // Var has initializer
+        if self.parser.match_(TokenType::Equal) {
+            // Pop '=' operator
+            self.parser.consume();
+
+            let initializer = self.parse_expression();
+            Expr::new(ExprKind::VarSet(VarSetExpr::new(var, initializer)))
+        } else {
+            Expr::new(ExprKind::VarGet(VarGetExpr::new(var)))
+        }
+    }
+
     fn parse_do(&mut self) -> Expr {
         self.parse_block()
     }
@@ -171,14 +206,23 @@ mod test {
     #[test]
     fn it_works() {
         let input = r#"
-
-
-
         do
             print(10)
             print(10)
         end
 "#;
+
+        let exprs = EvalParser::parse(input);
+        println!("{:?}", exprs);
+    }
+
+    #[test]
+    fn parse_var() {
+        let input = r#"
+        var x = 10
+        x = 10
+        print(x)
+        "#;
 
         let exprs = EvalParser::parse(input);
         println!("{:?}", exprs);

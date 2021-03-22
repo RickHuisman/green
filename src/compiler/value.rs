@@ -67,7 +67,7 @@ impl Mul for Value {
     fn mul(self, other: Self) -> Self::Output {
         if let Value::Number(b) = self {
             if let Value::Number(a) = other {
-                Value::Number(a - b)
+                Value::Number(a * b)
             } else {
                 panic!("Operand must be a number.");
             }
@@ -119,8 +119,6 @@ impl PartialEq for Value {
         // TODO Eq on object
     }
 }
-
-impl Eq for Value {}
 
 impl PartialOrd for Value {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {

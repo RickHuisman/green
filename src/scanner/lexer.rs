@@ -276,6 +276,18 @@ mod tests {
     }
 
     #[test]
+    fn parse_var2() {
+        let input = r#"
+        var x = 10
+"#;
+
+        let tokens = Lexer::parse(input);
+        for token in tokens {
+            println!("{:?}", token);
+        }
+    }
+
+    #[test]
     fn parse_var() {
         let input = "var x = if y == 10 then true else false";
 
