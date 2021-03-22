@@ -11,6 +11,7 @@ pub enum Opcode {
     Greater,
     Less,
     Not,
+    Negate,
 }
 
 impl From<u8> for Opcode {
@@ -27,6 +28,7 @@ impl From<u8> for Opcode {
             0x08 => Opcode::Greater,
             0x09 => Opcode::Less,
             0x0a => Opcode::Not,
+            0x0b => Opcode::Negate,
             _ => panic!("No opcode for byte: {}", byte),
         }
     }

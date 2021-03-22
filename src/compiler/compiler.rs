@@ -1,4 +1,4 @@
-use crate::parser::ast::expr::{Expr, ExprKind, LiteralExpr, BinaryExpr, BinaryOperator};
+use crate::parser::ast::expr::{Expr, ExprKind, LiteralExpr, BinaryExpr, BinaryOperator, UnaryExpr, UnaryOperator};
 use crate::compiler::opcode::Opcode;
 use crate::compiler::value::Value;
 use crate::compiler::chunk::Chunk;
@@ -22,6 +22,7 @@ impl Compiler {
         match *expr.node {
             ExprKind::Literal(literal) => self.compile_literal(literal),
             ExprKind::Binary(binary) => self.compile_binary(binary),
+            ExprKind::Unary(unary) => self.compile_unary(unary),
             ExprKind::Block(_) => todo!(),
             ExprKind::Print(print) => self.compile_print(print),
         }
@@ -36,13 +37,30 @@ impl Compiler {
             BinaryOperator::Subtract => self.emit(Opcode::Subtract),
             BinaryOperator::Multiply => self.emit(Opcode::Multiply),
             BinaryOperator::Divide => self.emit(Opcode::Divide),
-            BinaryOperator::Equal => {
+            BinaryOperator::Equal => self.emit(Opcode::Equal),
+            BinaryOperator::BangEqual => {
+                self.emit(Opcode::Equal);
+                self.emit(Opcode::Not);
             }
-            BinaryOperator::BangEqual => {}
-            BinaryOperator::GreaterThan => {}
-            BinaryOperator::GreaterThanEqual => {}
-            BinaryOperator::LessThan => {}
-            BinaryOperator::LessThanEqual => {}
+            BinaryOperator::GreaterThan => self.emit(Opcode::Greater),
+            BinaryOperator::GreaterThanEqual => {
+                self.emit(Opcode::Less);
+                self.emit(Opcode::Not);
+            }
+            BinaryOperator::LessThan => self.emit(Opcode::Less),
+            BinaryOperator::LessThanEqual => {
+                self.emit(Opcode::Greater);
+                self.emit(Opcode::Not);
+            }
+        }
+    }
+
+    fn compile_unary(&mut self, unary: UnaryExpr) {
+        self.compile_expr(*unary.expr);
+
+        match unary.operator {
+            UnaryOperator::Negate => self.emit(Opcode::Negate),
+            UnaryOperator::Not => self.emit(Opcode::Not),
         }
     }
 

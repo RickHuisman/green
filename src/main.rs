@@ -3,7 +3,7 @@ use crate::scanner::lexer::Lexer;
 use crate::compiler::chunk::Chunk;
 use crate::vm::vm::VM;
 use crate::compiler::opcode::Opcode;
-use crate::parser::ast::expr::{Expr, ExprKind, LiteralExpr, BinaryExpr, BinaryOperator};
+use crate::parser::ast::expr::{Expr, ExprKind, LiteralExpr, BinaryExpr, BinaryOperator, UnaryExpr, UnaryOperator};
 use crate::compiler::compiler::Compiler;
 
 mod scanner;
@@ -42,7 +42,14 @@ fn main() {
                 //             BinaryOperator::Add,
                 //         )
                 //     )
-                    ExprKind::Literal(LiteralExpr::Number(40.0))
+                //     ExprKind::Literal(LiteralExpr::Number(40.0))
+                    ExprKind::Unary(
+                            UnaryExpr::new(
+                                Expr::new(ExprKind::Literal(LiteralExpr::Number(40.0))),
+                                UnaryOperator::Negate
+                            )
+                    )
+                    // ExprKind::Literal(LiteralExpr::Number(40.0))
                 )
             )
         ),

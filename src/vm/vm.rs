@@ -21,10 +21,7 @@ impl VM {
             let instruction = Opcode::from(self.read_byte(chunk));
             match instruction {
                 Opcode::Return => self.ret(),
-                Opcode::Constant => {
-                    let constant = self.read_constant(chunk);
-                    self.push(constant);
-                }
+                Opcode::Constant => self.constant(&chunk),
                 Opcode::Add => self.add(),
                 Opcode::Subtract => self.subtract(),
                 Opcode::Multiply => self.multiply(),
@@ -34,7 +31,7 @@ impl VM {
                 Opcode::Greater => self.greater(),
                 Opcode::Less => self.less(),
                 Opcode::Not => self.not(),
-                _ => todo!(),
+                Opcode::Negate => self.negate(),
             }
         }
     }
@@ -42,6 +39,11 @@ impl VM {
     fn ret(&mut self) {
         let popped = self.pop();
         println!("{:?}", popped); // TODO
+    }
+
+    fn constant(&mut self, chunk: &Chunk) {
+        let constant = self.read_constant(chunk);
+        self.push(constant);
     }
 
     fn add(&mut self) {
@@ -88,16 +90,17 @@ impl VM {
 
     fn not(&mut self) {
         let a = self.pop();
-        if a.truthy() {
-            self.push(Value::False);
-        } else {
-            self.push(Value::True);
-        }
+        self.push(bool::into(bool::from(a)));
+    }
+
+    fn negate(&mut self) {
+        let a = self.pop();
+        self.push(-a);
     }
 
     fn print(&mut self) {
-        let popped = self.pop();
-        println!("{:?}", popped); // TODO should not pop value of stack
+        let popped = self.pop(); // TODO should not pop value of stack because it's an expression
+        println!("{:?}", popped); // TODO Implement display for Value enum
     }
 
     fn read_constant(&mut self, chunk: &Chunk) -> Value {

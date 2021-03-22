@@ -22,6 +22,7 @@ impl Expr {
 pub enum ExprKind {
     Literal(LiteralExpr),
     Binary(BinaryExpr),
+    Unary(UnaryExpr),
     Block(BlockExpr),
     Print(Expr),
 }
@@ -78,6 +79,24 @@ impl BinaryOperator {
             _ => todo!() // TODO
         }
     }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct UnaryExpr {
+    pub expr: Box<Expr>,
+    pub operator: UnaryOperator,
+}
+
+impl UnaryExpr {
+    pub fn new(expr: Expr, operator: UnaryOperator) -> Self {
+        UnaryExpr { expr: Box::new(expr), operator }
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub enum UnaryOperator {
+    Negate,
+    Not,
 }
 
 #[derive(PartialEq, Debug)]

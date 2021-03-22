@@ -1,4 +1,4 @@
-use std::ops::{Add, Sub, Mul, Div};
+use std::ops::{Add, Sub, Mul, Div, Neg};
 use std::cmp::Ordering;
 
 #[derive(Debug, Copy, Clone)]
@@ -6,13 +6,13 @@ pub enum Value {
     Number(f64),
     True,
     False,
-    Nil,
+    Nil, // TODO Does Eval lang use nils???
     // TODO Object
 }
 
-impl Value {
-    pub fn truthy(&self) -> bool {
-        match self {
+impl From<Value> for bool {
+    fn from(value: Value) -> Self {
+        match value {
             Value::False | Value::Nil => false,
             _ => true,
         }
@@ -89,6 +89,18 @@ impl Div for Value {
             }
         } else {
             panic!("Operand must be a number.");
+        }
+    }
+}
+
+impl Neg for Value {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        if let Value::Number(a) = self {
+            Value::Number(-a)
+        } else {
+            todo!() // TODO
         }
     }
 }
