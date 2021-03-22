@@ -1,4 +1,4 @@
-use crate::parser::parser::EvalParser;
+use crate::parser::parser::{EvalParser, Parser};
 use crate::scanner::lexer::Lexer;
 use crate::compiler::chunk::Chunk;
 use crate::vm::vm::VM;
@@ -31,29 +31,38 @@ fn main() {
     // let exprs = EvalParser::parse(input);
     // println!("{:?}", exprs);
 
-    let exprs = vec![
-        Expr::new(
-            ExprKind::Print(
-                Expr::new(
-                //     ExprKind::Binary(
-                //         BinaryExpr::new(
-                //             Expr::new(ExprKind::Literal(LiteralExpr::Number(40.0))),
-                //             Expr::new(ExprKind::Literal(LiteralExpr::Number(10.0))),
-                //             BinaryOperator::Add,
-                //         )
-                //     )
-                //     ExprKind::Literal(LiteralExpr::Number(40.0))
-                    ExprKind::Unary(
-                            UnaryExpr::new(
-                                Expr::new(ExprKind::Literal(LiteralExpr::Number(40.0))),
-                                UnaryOperator::Negate
-                            )
-                    )
-                    // ExprKind::Literal(LiteralExpr::Number(40.0))
-                )
-            )
-        ),
-    ];
+    // let exprs = vec![
+    //     Expr::new(
+    //         ExprKind::Print(
+    //             Expr::new(
+    //             //     ExprKind::Binary(
+    //             //         BinaryExpr::new(
+    //             //             Expr::new(ExprKind::Literal(LiteralExpr::Number(40.0))),
+    //             //             Expr::new(ExprKind::Literal(LiteralExpr::Number(10.0))),
+    //             //             BinaryOperator::Add,
+    //             //         )
+    //             //     )
+    //             //     ExprKind::Literal(LiteralExpr::Number(40.0))
+    //                 ExprKind::Unary(
+    //                         UnaryExpr::new(
+    //                             Expr::new(ExprKind::Literal(LiteralExpr::Number(40.0))),
+    //                             UnaryOperator::Negate
+    //                         )
+    //                 )
+    //                 // ExprKind::Literal(LiteralExpr::Number(40.0))
+    //             )
+    //         )
+    //     ),
+    // ];
+
+    let input = r#"
+        do
+            print(10)
+            print(10 * 2)
+        end
+"#;
+
+    let exprs = EvalParser::parse(input);
 
     let chunk = Compiler::compile(exprs);
     println!("{}", chunk);

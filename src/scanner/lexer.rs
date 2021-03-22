@@ -263,10 +263,11 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let input = r#"do
-            10 + 5
+        let input = r#"
+        do
+            print(10)
         end
-        "#;
+"#;
 
         let tokens = Lexer::parse(input);
         for token in tokens {

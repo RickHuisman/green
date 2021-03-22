@@ -1,12 +1,12 @@
 use crate::scanner::lexer::Lexer;
-use crate::scanner::token::{Token, TokenType, Keyword};
+use crate::scanner::token::{Token, TokenType, Keyword, Position};
 use crate::parser::rule::{GrammarRules, Precedence};
 use crate::parser::ast::expr::{Expr, ExprKind, BlockExpr};
 use crate::parser::ast::expr::ExprKind::{Literal, Block};
 use crate::scanner::token::TokenType::Line;
 use std::any::Any;
 
-struct Parser<'a> {
+pub struct Parser<'a> {
     tokens: Vec<Token<'a>>,
 }
 
@@ -15,15 +15,25 @@ impl<'a> Parser<'a> {
         Parser { tokens }
     }
 
+    fn match_(&mut self, token_type: TokenType) -> bool { // TODO match_ name
+        self.peek_type() == token_type
+    }
+
     fn peek_type(&mut self) -> TokenType {
-        self.tokens.get(self.tokens.len() - 1).unwrap().token_type
+        if self.tokens.len() == 0 {
+            return TokenType::EOF;
+        }
+
+        self.tokens.get(self.tokens.len() - 1)
+            .unwrap()
+            .token_type
     }
 
     fn peek(&mut self) -> &Token<'a> {
         self.tokens.get(self.tokens.len() - 1).unwrap()
     }
 
-    fn expect(&mut self, expect: TokenType) -> Token<'a> {
+    pub fn expect(&mut self, expect: TokenType) -> Token<'a> {
         if self.peek_type() == expect {
             self.consume()
         } else {
@@ -31,7 +41,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn consume(&mut self) -> Token<'a> {
+    pub fn consume(&mut self) -> Token<'a> {
         self.tokens.pop().unwrap()
     }
 
@@ -41,7 +51,7 @@ impl<'a> Parser<'a> {
 }
 
 pub struct EvalParser<'a> {
-    parser: Parser<'a>,
+    pub parser: Parser<'a>,
     grammar: GrammarRules,
 }
 
@@ -56,10 +66,15 @@ impl<'a> EvalParser<'a> {
         };
 
         let mut exprs = vec![];
-        while eval_parser.parser.peek_type() != TokenType::EOF {
-            exprs.push(eval_parser.parse_statement());
+        while !eval_parser.parser.match_(TokenType::EOF) {
+            // Consume lines till a non line token is found
+            while eval_parser.parser.peek_type() == TokenType::Line {
+                eval_parser.parser.consume();
+            }
 
-            if eval_parser.parser.peek_type() != TokenType::EOF {
+            exprs.push(eval_parser.parse_top_level_expression());
+
+            if !eval_parser.parser.match_(TokenType::EOF) {
                 eval_parser.parser.expect(TokenType::Line);
             }
         }
@@ -68,7 +83,7 @@ impl<'a> EvalParser<'a> {
     }
 
     // Eval doesn't have statements but "top-level" expressions.
-    fn parse_statement(&mut self) -> Expr {
+    fn parse_top_level_expression(&mut self) -> Expr {
         match self.parser.peek_type() {
             TokenType::Keyword(Keyword::Print) => self.parse_print(),
             TokenType::Keyword(Keyword::Do) => self.parse_do(),
@@ -76,7 +91,7 @@ impl<'a> EvalParser<'a> {
         }
     }
 
-    fn parse_expression(&mut self) -> Expr {
+    pub fn parse_expression(&mut self) -> Expr {
         self.parse_precedence(Precedence::None)
     }
 
@@ -94,7 +109,7 @@ impl<'a> EvalParser<'a> {
                 left
             }
         } else {
-            panic!("Cannot parse an expression.");
+            panic!("Unexpected token {:?}.", token); // TODO
         }
     }
 
@@ -122,6 +137,7 @@ impl<'a> EvalParser<'a> {
     }
 
     fn parse_print(&mut self) -> Expr {
+        self.parser.expect(TokenType::Keyword(Keyword::Print));
         Expr::new(ExprKind::Print(self.parse_expression()))
     }
 
@@ -130,11 +146,15 @@ impl<'a> EvalParser<'a> {
     }
 
     fn parse_block(&mut self) -> Expr {
+        // TODO Check for single line expr: do print(10) end
+
+        // Consume "do" keyword
+        self.parser.expect(TokenType::Keyword(Keyword::Do));
         self.parser.expect(TokenType::Line);
 
         let mut exprs = vec![];
-        loop {
-            exprs.push(self.parse_statement());
+        while !self.parser.match_(TokenType::Keyword(Keyword::End)) {
+            exprs.push(self.parse_top_level_expression());
             self.parser.expect(TokenType::Line);
         }
 
@@ -150,7 +170,15 @@ mod test {
 
     #[test]
     fn it_works() {
-        let input = r#"do 5 + 10 end"#;
+        let input = r#"
+
+
+
+        do
+            print(10)
+            print(10)
+        end
+"#;
 
         let exprs = EvalParser::parse(input);
         println!("{:?}", exprs);

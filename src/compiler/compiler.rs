@@ -1,4 +1,4 @@
-use crate::parser::ast::expr::{Expr, ExprKind, LiteralExpr, BinaryExpr, BinaryOperator, UnaryExpr, UnaryOperator};
+use crate::parser::ast::expr::{Expr, ExprKind, LiteralExpr, BinaryExpr, BinaryOperator, UnaryExpr, UnaryOperator, BlockExpr, GroupingExpr};
 use crate::compiler::opcode::Opcode;
 use crate::compiler::value::Value;
 use crate::compiler::chunk::Chunk;
@@ -8,7 +8,7 @@ pub struct Compiler {
 }
 
 impl Compiler {
-    pub fn compile(exprs: Vec<Expr>) -> Chunk {
+    pub fn compile(exprs: Vec<Expr>) -> Chunk { // TODO Accept &str not exprs
         let mut compiler = Compiler { chunk: Chunk::new() };
 
         for expr in exprs {
@@ -23,8 +23,9 @@ impl Compiler {
             ExprKind::Literal(literal) => self.compile_literal(literal),
             ExprKind::Binary(binary) => self.compile_binary(binary),
             ExprKind::Unary(unary) => self.compile_unary(unary),
-            ExprKind::Block(_) => todo!(),
+            ExprKind::Block(block) => self.compile_block(block),
             ExprKind::Print(print) => self.compile_print(print),
+            ExprKind::Grouping(grouping) => self.compile_grouping(grouping),
         }
     }
 
@@ -64,9 +65,19 @@ impl Compiler {
         }
     }
 
+    fn compile_block(&mut self, block: BlockExpr) {
+        for expr in block.expressions {
+            self.compile_expr(expr);
+        }
+    }
+
     fn compile_print(&mut self, expr: Expr) {
         self.compile_expr(expr);
         self.emit(Opcode::Print);
+    }
+
+    fn compile_grouping(&mut self, grouping: GroupingExpr) {
+        self.compile_expr(*grouping.expr);
     }
 
     fn compile_literal(&mut self, literal: LiteralExpr) {

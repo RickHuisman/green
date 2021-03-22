@@ -1,7 +1,7 @@
 use crate::scanner::token::{TokenType, Token};
 use crate::parser::parser::EvalParser;
 use std::collections::HashMap;
-use crate::parser::ast::expr::{Expr, LiteralExpr, ExprKind, BinaryExpr, BinaryOperator};
+use crate::parser::ast::expr::{Expr, LiteralExpr, ExprKind, BinaryExpr, BinaryOperator, GroupingExpr};
 
 pub trait PrefixParser {
     fn parse<'a>(&self, parser: &mut EvalParser, token: Token<'a>) -> Expr;
@@ -23,11 +23,18 @@ impl GrammarRules {
         let mut map = HashMap::new();
         map.insert(TokenType::Number, LiteralParser {});
 
+        let mut map2 = HashMap::new();
+        map2.insert(TokenType::LeftParen, GroupingParser {});
+
         if let Some(token_type) = map.get(&token.token_type) {
-            Some(Box::new(*token_type))
+            Some(Box::new(map[&token.token_type]))
         } else {
-            println!("No rule for token: {:?}", token);
-            None
+            if let Some(token_type) = map2.get(&token.token_type) {
+                Some(Box::new(map2[&token.token_type]))
+            } else {
+                println!("No rule for token: {:?}", token);
+                None
+            }
         }
     }
 
@@ -95,6 +102,17 @@ impl PrefixParser for LiteralParser {
             _ => panic!("TODO") // TODO
         };
         Expr::new(ExprKind::Literal(op))
+    }
+}
+
+#[derive(Copy, Clone)]
+struct GroupingParser {}
+
+impl PrefixParser for GroupingParser {
+    fn parse<'a>(&self, parser: &mut EvalParser, token: Token<'a>) -> Expr {
+        let expr = parser.parse_expression();
+        parser.parser.expect(TokenType::RightParen);
+        Expr::new(ExprKind::Grouping(GroupingExpr::new(expr)))
     }
 }
 

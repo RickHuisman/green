@@ -1,5 +1,6 @@
 use crate::scanner::token::{Token, TokenType};
 use std::fmt::Display;
+use crate::parser::ast::expr::ExprKind::Grouping;
 
 #[derive(PartialEq, Debug)]
 pub struct Expr {
@@ -24,7 +25,8 @@ pub enum ExprKind {
     Binary(BinaryExpr),
     Unary(UnaryExpr),
     Block(BlockExpr),
-    Print(Expr),
+    Print(Expr), // TODO Box<Expr>???
+    Grouping(GroupingExpr),
 }
 
 #[derive(PartialEq, Debug)]
@@ -107,5 +109,16 @@ pub struct BlockExpr {
 impl BlockExpr {
     pub fn new(expressions: Vec<Expr>) -> Self {
         BlockExpr { expressions }
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct GroupingExpr {
+    pub expr: Box<Expr>,
+}
+
+impl GroupingExpr {
+    pub fn new(expr: Expr) -> Self {
+        GroupingExpr { expr: Box::new(expr) }
     }
 }
