@@ -38,6 +38,9 @@ impl VM {
                 Opcode::Negate => self.negate(),
                 Opcode::DefineGlobal => self.define_global(chunk),
                 Opcode::GetGlobal => self.get_global(chunk),
+                Opcode::JumpIfFalse => self.jump_if_false(chunk),
+                Opcode::Jump => self.jump(chunk),
+                Opcode::Pop => { self.pop(); },
             }
         }
     }
@@ -91,7 +94,7 @@ impl VM {
     fn less(&mut self) {
         let b = self.pop();
         let a = self.pop();
-        self.push((a > b).into());
+        self.push((a < b).into());
     }
 
     fn not(&mut self) {
@@ -137,6 +140,19 @@ impl VM {
         }
     }
 
+    fn jump_if_false(&mut self, chunk: &Chunk) {
+        let offset = self.read_short(chunk);
+
+        if bool::from(self.peek(0)) {
+            self.ip += offset as usize;
+        }
+    }
+
+    fn jump(&mut self, chunk: &Chunk) {
+        let offset = self.read_short(chunk);
+        self.ip += offset as usize;
+    }
+
     fn print(&mut self) {
         let popped = self.pop(); // TODO should not pop value of stack because it's an expression
         println!("{:?}", popped); // TODO Implement display for Value enum
@@ -151,6 +167,14 @@ impl VM {
         let byte = chunk.code()[self.ip];
         self.ip = self.ip + 1;
         byte
+    }
+
+    fn read_short(&mut self, chunk: &Chunk) -> u16 {
+        self.ip += 2;
+
+        let lo = chunk.code()[self.ip - 2] as u16;
+        let hi = chunk.code()[self.ip - 1] as u16;
+        (lo << 8) | hi
     }
 
     fn is_at_end(&self, chunk: &Chunk) -> bool {

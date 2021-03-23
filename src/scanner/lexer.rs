@@ -313,4 +313,19 @@ mod tests {
 
         assert_eq!(expect, tokens);
     }
+
+    #[test]
+    fn parse_if_else() {
+        let input = r#"
+        if 10 > 5 then
+            print(5)
+        else
+            print(10)
+"#;
+
+        let tokens = Lexer::parse(input);
+        for token in tokens {
+            println!("{:?}", token);
+        }
+    }
 }

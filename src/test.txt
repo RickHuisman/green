@@ -1,2 +1,4 @@
-var x = 10 * 2 / 2
-print(x + 2)
+var x = 10
+if x > 5 then
+    print(5)
+end

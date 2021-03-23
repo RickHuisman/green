@@ -32,6 +32,10 @@ impl Chunk {
         &self.code
     }
 
+    pub fn code_mut(&mut self) -> &mut Vec<u8> {
+        &mut self.code
+    }
+
     pub fn constants(&self) -> &Vec<Value> {
         &self.constants
     }
@@ -51,7 +55,7 @@ impl Display for Chunk {
 }
 
 fn disassemble_instruction(f: &mut Formatter<'_>, chunk: &Chunk, offset: &mut usize) -> usize {
-    write!(f, "{:04}", offset);
+    write!(f, "{:04X}", offset);
 
     // if *offset > 0 &&
     //     chunk.lines[*offset] == chunk.lines[*offset - 1] {
@@ -83,6 +87,9 @@ fn disassemble_instruction(f: &mut Formatter<'_>, chunk: &Chunk, offset: &mut us
         Opcode::Negate => simple_instruction(f, "OP_NOT", offset),
         Opcode::DefineGlobal => constant_instruction(chunk, f, "OP_DEFINE_GLOBAL", offset),
         Opcode::GetGlobal => constant_instruction(chunk, f, "OP_GET_GLOBAL", offset),
+        Opcode::JumpIfFalse => jump_instruction(chunk, f, "OP_JUMP_IF_FALSE", 1, offset),
+        Opcode::Jump => jump_instruction(chunk, f, "OP_JUMP", 1, offset),
+        Opcode::Pop => simple_instruction(f, "OP_POP", offset),
     }
 }
 
@@ -101,4 +108,21 @@ fn constant_instruction(
     write!(f, "{:-16} {:4} ", name, constant);
     writeln!(f, "'{:?}'", chunk.constants()[constant as usize]);
     *offset + 2
+}
+
+fn jump_instruction(
+    chunk: &Chunk,
+    f: &mut Formatter<'_>,
+    name: &str,
+    sign: usize,
+    offset: &mut usize,
+) -> usize {
+    let lo = chunk.code[*offset + 2] as u16;
+    let hi = chunk.code[*offset + 1] as u16;
+
+    let jump = lo + (hi << 8);
+
+    writeln!(f, "{:-16} {:4X} -> {:4X}", name, offset, *offset + 3 + sign * jump as usize);
+
+    *offset + 3
 }

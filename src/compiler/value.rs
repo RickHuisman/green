@@ -123,6 +123,14 @@ impl PartialEq for Value {
 
 impl PartialOrd for Value {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.partial_cmp(other)
+        if let Value::Number(b) = self {
+            if let Value::Number(a) = other {
+                a.partial_cmp(b)
+            } else {
+                panic!("Operand must be a number.");
+            }
+        } else {
+            panic!("Operand must be a number.");
+        }
     }
 }

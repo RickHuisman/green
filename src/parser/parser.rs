@@ -1,7 +1,7 @@
 use crate::scanner::lexer::Lexer;
 use crate::scanner::token::{Token, TokenType, Keyword, Position};
 use crate::parser::rule::{GrammarRules, Precedence};
-use crate::parser::ast::expr::{Expr, ExprKind, BlockExpr, LiteralExpr, Variable, VarSetExpr, VarGetExpr, VarAssignExpr};
+use crate::parser::ast::expr::{Expr, ExprKind, BlockExpr, LiteralExpr, Variable, VarSetExpr, VarGetExpr, VarAssignExpr, IfExpr, IfElseExpr};
 use crate::parser::ast::expr::ExprKind::{Literal, Block};
 use crate::scanner::token::TokenType::Line;
 use std::any::Any;
@@ -88,6 +88,7 @@ impl<'a> EvalParser<'a> {
             TokenType::Keyword(Keyword::Print) => self.parse_print(),
             TokenType::Keyword(Keyword::Var) => self.declare_var(),
             TokenType::Keyword(Keyword::Do) => self.parse_do(),
+            TokenType::Keyword(Keyword::If) => self.parse_if(),
             _ => self.parse_expression()
         }
     }
@@ -180,6 +181,39 @@ impl<'a> EvalParser<'a> {
         self.parse_block()
     }
 
+    fn parse_if(&mut self) -> Expr {
+        self.parser.expect(TokenType::Keyword(Keyword::If));
+
+        let cond = self.parse_expression();
+
+        self.parser.expect(TokenType::Keyword(Keyword::Then));
+        self.parser.expect(TokenType::Line);
+
+        // TODO Multiple exprs in then block???
+        let then = self.parse_top_level_expression();
+
+        self.parser.expect(TokenType::Line);
+
+        let expr_kind = if self.parser.match_(TokenType::Keyword(Keyword::Else)) {
+            self.parser.consume();
+
+            self.parser.expect(TokenType::Line);
+
+            // TODO Multiple exprs in then block???
+            let else_clause = self.parse_top_level_expression();
+
+            self.parser.expect(TokenType::Line);
+
+            ExprKind::IfElse(IfElseExpr::new(cond, then, else_clause))
+        } else {
+            ExprKind::If(IfExpr::new(cond, then))
+        };
+
+        self.parser.expect(TokenType::Keyword(Keyword::End));
+
+        Expr::new(expr_kind)
+    }
+
     fn parse_block(&mut self) -> Expr {
         // TODO Check for single line expr: do print(10) end
 
@@ -222,6 +256,19 @@ mod test {
         var x = 10
         x = 10
         print(x)
+        "#;
+
+        let exprs = EvalParser::parse(input);
+        println!("{:?}", exprs);
+    }
+
+    #[test]
+    fn parse_if_else() {
+        let input = r#"
+        if 10 > 5 then
+            print(5)
+        else
+            print(10)
         "#;
 
         let exprs = EvalParser::parse(input);

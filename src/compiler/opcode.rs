@@ -14,6 +14,9 @@ pub enum Opcode {
     Negate,
     DefineGlobal,
     GetGlobal,
+    JumpIfFalse,
+    Jump,
+    Pop
 }
 
 impl From<u8> for Opcode {
@@ -33,6 +36,9 @@ impl From<u8> for Opcode {
             0x0b => Opcode::Negate,
             0x0c => Opcode::DefineGlobal,
             0x0d => Opcode::GetGlobal,
+            0x0e => Opcode::JumpIfFalse,
+            0x0f => Opcode::Jump,
+            0x10 => Opcode::Pop,
             _ => panic!("No opcode for byte: {}", byte),
         }
     }

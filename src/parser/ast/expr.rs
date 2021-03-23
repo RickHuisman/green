@@ -30,6 +30,8 @@ pub enum ExprKind {
     VarGet(VarGetExpr),
     Print(Expr), // TODO Box<Expr>???
     Grouping(GroupingExpr),
+    If(IfExpr),
+    IfElse(IfElseExpr),
 }
 
 #[derive(PartialEq, Debug)]
@@ -170,5 +172,30 @@ pub struct Variable {
 impl Variable {
     pub fn new(name: String) -> Self {
         Variable { name }
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct IfExpr {
+    pub condition: Expr,
+    pub then_clause: Expr, // TODO Multiple exprs
+}
+
+impl IfExpr {
+    pub fn new(condition: Expr, then_clause: Expr) -> Self {
+        IfExpr { condition, then_clause }
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct IfElseExpr {
+    pub condition: Expr,
+    pub then_clause: Expr, // TODO Multiple exprs
+    pub else_clause: Expr, // TODO Multiple exprs
+}
+
+impl IfElseExpr {
+    pub fn new(condition: Expr, then_clause: Expr, else_clause: Expr) -> Self {
+        IfElseExpr { condition, then_clause, else_clause }
     }
 }

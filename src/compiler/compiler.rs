@@ -1,4 +1,4 @@
-use crate::parser::ast::expr::{Expr, ExprKind, LiteralExpr, BinaryExpr, BinaryOperator, UnaryExpr, UnaryOperator, BlockExpr, GroupingExpr, VarSetExpr, VarGetExpr, VarAssignExpr};
+use crate::parser::ast::expr::{Expr, ExprKind, LiteralExpr, BinaryExpr, BinaryOperator, UnaryExpr, UnaryOperator, BlockExpr, GroupingExpr, VarSetExpr, VarGetExpr, VarAssignExpr, IfExpr, IfElseExpr};
 use crate::compiler::opcode::Opcode;
 use crate::compiler::value::Value;
 use crate::compiler::chunk::Chunk;
@@ -30,6 +30,8 @@ impl Compiler {
             ExprKind::VarAssign(var) => self.compile_declare_var(var),
             ExprKind::VarSet(var) => self.compile_set_var(var),
             ExprKind::VarGet(var) => self.compile_get_var(var),
+            ExprKind::If(if_expr) => self.compile_if(if_expr),
+            ExprKind::IfElse(if_else_expr) => self.compile_if_else(if_else_expr),
         }
     }
 
@@ -100,6 +102,57 @@ impl Compiler {
         self.emit(Opcode::GetGlobal);
         let constant_id = self.chunk.add_constant(Value::Obj(var.variable.name.into()));
         self.emit_byte(constant_id);
+    }
+
+    fn compile_if(&mut self, if_expr: IfExpr) {
+        self.compile_expr(if_expr.condition);
+
+        // Jump to else clause if false
+        let then_jump = self.emit_jump(Opcode::JumpIfFalse);
+        self.emit(Opcode::Pop);
+
+        self.compile_expr(if_expr.then_clause);
+
+        let else_jump = self.emit_jump(Opcode::Jump);
+
+        self.patch_jump(then_jump);
+        self.emit(Opcode::Pop);
+
+        self.patch_jump(else_jump);
+    }
+
+    fn compile_if_else(&mut self, if_else_expr: IfElseExpr) {
+        self.compile_expr(if_else_expr.condition);
+
+        // Jump to else clause if false
+        let then_jump = self.emit_jump(Opcode::JumpIfFalse);
+        self.emit(Opcode::Pop);
+
+        self.compile_expr(if_else_expr.then_clause);
+
+        let else_jump = self.emit_jump(Opcode::Jump);
+
+        self.patch_jump(then_jump);
+        self.emit(Opcode::Pop);
+
+        self.compile_expr(if_else_expr.else_clause);
+
+        self.patch_jump(else_jump);
+    }
+
+    fn emit_jump(&mut self, instruction: Opcode) -> usize {
+        self.emit(instruction);
+        self.emit_byte(0xff);
+        self.emit_byte(0xff);
+        return self.chunk.code().len() - 2;
+    }
+
+    fn patch_jump(&mut self, offset: usize) {
+        // -2 to adjust for the bytecode for the jump offset itself.
+        let jump = self.chunk.code().len() - offset - 2;
+
+        self.chunk.code_mut()[offset] = ((jump >> 8) & 0xff) as u8;
+        self.chunk.code_mut()[offset + 1] = (jump & 0xff) as u8;
     }
 
     fn compile_literal(&mut self, literal: LiteralExpr) {
