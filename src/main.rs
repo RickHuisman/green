@@ -1,4 +1,4 @@
-use crate::parser::parser::{EvalParser, Parser};
+use crate::parser::parser::EvalParser;
 use crate::scanner::lexer::Lexer;
 use crate::compiler::chunk::Chunk;
 use crate::vm::vm::VM;

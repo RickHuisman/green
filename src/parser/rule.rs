@@ -120,7 +120,7 @@ struct GroupingParser {}
 impl PrefixParser for GroupingParser {
     fn parse<'a>(&self, parser: &mut EvalParser, token: Token<'a>) -> Expr {
         let expr = parser.parse_expression();
-        parser.parser.expect(TokenType::RightParen);
+        parser.expect(TokenType::RightParen);
         Expr::new(ExprKind::Grouping(GroupingExpr::new(expr)))
     }
 }
