@@ -6,42 +6,31 @@ use crate::scanner::lexer::Lexer;
 /// - Comments
 /// - Unessential lines
 pub fn morph<'a>(mut tokens: Vec<Token<'a>>) -> Vec<Token<'a>> {
-    let mut test = vec![];
+    let mut morphed = vec![];
 
     while !tokens.is_empty() {
         let token = tokens.pop().unwrap();
         match token.token_type {
-            TokenType::LeftParen => {}
-            TokenType::RightParen => {}
-            TokenType::LeftBrace => {}
-            TokenType::RightBrace => {}
-            TokenType::Comma => {}
-            TokenType::Dot => {}
-            TokenType::Minus => {}
-            TokenType::Plus => {}
-            TokenType::Percent => {}
-            TokenType::Star => {}
-            TokenType::Bang => {}
-            TokenType::BangEqual => {}
-            TokenType::Equal => {}
-            TokenType::EqualEqual => {}
-            TokenType::LessThan => {}
-            TokenType::LessThanEqual => {}
-            TokenType::GreaterThan => {}
-            TokenType::GreaterThanEqual => {}
-            TokenType::Slash => {}
-            TokenType::Comment => {}
-            TokenType::String => {}
-            TokenType::Number => {}
-            TokenType::Keyword(_) => {}
-            TokenType::Identifier => {}
-            TokenType::Line => {}
-            TokenType::EOF => {}
-            _ => test.push(token),
+            TokenType::LineComment => {
+                // Ignore comments.
+            },
+            TokenType::Line => {
+                if morphed.is_empty() {
+                    morphed.push(token);
+                } else {
+                    let last_token_type = morphed.last().unwrap().token_type;
+                    if last_token_type != TokenType::Line {
+                        morphed.push(token);
+                    }
+                }
+            }
+            _ => morphed.push(token)
         }
     }
 
-    test
+    morphed.reverse();
+
+    morphed
 }
 
 #[cfg(test)]
@@ -56,23 +45,15 @@ mod tests {
 
         "#;
         let tokens = Lexer::parse(input);
-        for token in tokens {
+        for token in &tokens {
             println!("{:?}", token);
         }
 
-    }
+        println!("Morph");
 
-    #[test]
-    fn morph() {
-        let input = r#"
-
-        print(10)
-
-        "#;
-        let tokens = Lexer::parse(input);
-        for token in tokens {
+        let tokens2 = morph(tokens);
+        for token in tokens2 {
             println!("{:?}", token);
         }
-
     }
 }

@@ -3,6 +3,7 @@ use crate::compiler::opcode::Opcode;
 use crate::compiler::value::Value;
 use crate::compiler::chunk::Chunk;
 use crate::compiler::object::Object;
+use std::process::exit;
 
 pub struct Compiler {
     chunk: Chunk,
@@ -111,7 +112,9 @@ impl Compiler {
         let then_jump = self.emit_jump(Opcode::JumpIfFalse);
         self.emit(Opcode::Pop);
 
-        self.compile_expr(if_expr.then_clause);
+        for expr in if_expr.then_clause {
+            self.compile_expr(expr);
+        }
 
         let else_jump = self.emit_jump(Opcode::Jump);
 
@@ -128,14 +131,18 @@ impl Compiler {
         let then_jump = self.emit_jump(Opcode::JumpIfFalse);
         self.emit(Opcode::Pop);
 
-        self.compile_expr(if_else_expr.then_clause);
+        for expr in if_else_expr.then_clause {
+            self.compile_expr(expr);
+        }
 
         let else_jump = self.emit_jump(Opcode::Jump);
 
         self.patch_jump(then_jump);
         self.emit(Opcode::Pop);
 
-        self.compile_expr(if_else_expr.else_clause);
+        for expr in if_else_expr.else_clause {
+            self.compile_expr(expr);
+        }
 
         self.patch_jump(else_jump);
     }

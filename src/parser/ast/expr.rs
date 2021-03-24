@@ -178,11 +178,11 @@ impl Variable {
 #[derive(PartialEq, Debug)]
 pub struct IfExpr {
     pub condition: Expr,
-    pub then_clause: Expr, // TODO Multiple exprs
+    pub then_clause: Vec<Expr>,
 }
 
 impl IfExpr {
-    pub fn new(condition: Expr, then_clause: Expr) -> Self {
+    pub fn new(condition: Expr, then_clause: Vec<Expr>) -> Self {
         IfExpr { condition, then_clause }
     }
 }
@@ -190,12 +190,12 @@ impl IfExpr {
 #[derive(PartialEq, Debug)]
 pub struct IfElseExpr {
     pub condition: Expr,
-    pub then_clause: Expr, // TODO Multiple exprs
-    pub else_clause: Expr, // TODO Multiple exprs
+    pub then_clause: Vec<Expr>,
+    pub else_clause: Vec<Expr>,
 }
 
 impl IfElseExpr {
-    pub fn new(condition: Expr, then_clause: Expr, else_clause: Expr) -> Self {
+    pub fn new(condition: Expr, then_clause: Vec<Expr>, else_clause: Vec<Expr>) -> Self {
         IfElseExpr { condition, then_clause, else_clause }
     }
 }

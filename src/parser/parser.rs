@@ -6,6 +6,7 @@ use crate::parser::ast::expr::ExprKind::{Literal, Block};
 use crate::scanner::token::TokenType::Line;
 use std::any::Any;
 use std::borrow::Borrow;
+use crate::scanner::morpher::morph;
 
 pub struct EvalParser<'a> {
     tokens: Vec<Token<'a>>,
@@ -15,6 +16,7 @@ pub struct EvalParser<'a> {
 impl<'a> EvalParser<'a> {
     pub fn parse(source: &str) -> Vec<Expr> {
         let mut tokens = Lexer::parse(source);
+        tokens = morph(tokens);
         tokens.reverse();
 
         let mut eval_parser = EvalParser {
@@ -113,15 +115,17 @@ impl<'a> EvalParser<'a> {
         let var = Variable::new(identifier.source.to_string());
 
         // Var has initializer
-        if self.match_(TokenType::Equal) {
+        let expr_kind = if self.match_(TokenType::Equal) {
             // Pop '=' operator
             self.consume();
 
             let initializer = self.parse_expression();
-            Expr::new(ExprKind::VarSet(VarSetExpr::new(var, initializer)))
+            ExprKind::VarSet(VarSetExpr::new(var, initializer))
         } else {
-            Expr::new(ExprKind::VarGet(VarGetExpr::new(var)))
-        }
+            ExprKind::VarGet(VarGetExpr::new(var))
+        };
+
+        Expr::new(expr_kind)
     }
 
     fn parse_do(&mut self) -> Expr {
@@ -136,10 +140,13 @@ impl<'a> EvalParser<'a> {
         self.expect(TokenType::Keyword(Keyword::Then));
         self.expect(TokenType::Line);
 
-        // TODO Multiple exprs in then block???
-        let then = self.parse_top_level_expression();
-
-        self.expect(TokenType::Line);
+        let mut then = vec![];
+        while !self.match_(TokenType::Keyword(Keyword::End)) &&
+            !self.match_(TokenType::Keyword(Keyword::Else))
+        {
+            then.push(self.parse_top_level_expression());
+            self.expect(TokenType::Line);
+        }
 
         let expr_kind = if self.match_(TokenType::Keyword(Keyword::Else)) {
             self.consume();
@@ -147,9 +154,13 @@ impl<'a> EvalParser<'a> {
             self.expect(TokenType::Line);
 
             // TODO Multiple exprs in then block???
-            let else_clause = self.parse_top_level_expression();
-
-            self.expect(TokenType::Line);
+            let mut else_clause = vec![];
+            while !self.match_(TokenType::Keyword(Keyword::End)) &&
+                !self.match_(TokenType::Keyword(Keyword::Else))
+            {
+                else_clause.push(self.parse_top_level_expression());
+                self.expect(TokenType::Line);
+            }
 
             ExprKind::IfElse(IfElseExpr::new(cond, then, else_clause))
         } else {
@@ -187,8 +198,7 @@ impl<'a> EvalParser<'a> {
         if self.tokens.len() == 0 {
             return TokenType::EOF;
         }
-
-        self.tokens[self.tokens.len() - 1].token_type
+        self.peek().token_type
     }
 
     fn peek(&self) -> &Token<'a> {
@@ -197,10 +207,9 @@ impl<'a> EvalParser<'a> {
 
     pub fn expect(&mut self, expect: TokenType) -> Token<'a> {
         if self.peek_type() == expect {
-            self.consume()
-        } else {
-            panic!("Expected {:?}, got: {:?}", expect, self.peek_type());
+            return self.consume();
         }
+        panic!("Expected {:?}, got: {:?}", expect, self.peek_type());
     }
 
     pub fn consume(&mut self) -> Token<'a> {
@@ -248,6 +257,7 @@ mod test {
             print(5)
         else
             print(10)
+        end
         "#;
 
         let exprs = EvalParser::parse(input);
