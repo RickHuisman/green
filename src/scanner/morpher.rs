@@ -5,7 +5,7 @@ use crate::scanner::lexer::Lexer;
 /// Tokens that are removed from the sequence:
 /// - Comments
 /// - Unessential lines
-pub fn morph<'a>(mut tokens: Vec<Token<'a>>) -> Vec<Token<'a>> {
+pub fn morph(mut tokens: Vec<Token>) -> Vec<Token> {
     let mut morphed = vec![];
 
     while !tokens.is_empty() {

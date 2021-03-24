@@ -15,7 +15,7 @@ pub struct EvalParser<'a> {
 
 impl<'a> EvalParser<'a> {
     pub fn parse(source: &str) -> Vec<Expr> {
-        let mut tokens = Lexer::parse(source);
+        let mut tokens = Lexer::parse(source).unwrap();
         tokens = morph(tokens);
         tokens.reverse();
 

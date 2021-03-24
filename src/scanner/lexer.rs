@@ -2,31 +2,34 @@ use std::str::{CharIndices, FromStr};
 use std::iter::Peekable;
 use crate::scanner::token::{Token, TokenType, Position, Keyword};
 use crate::scanner::error::SyntaxError;
+use crate::scanner::peek::PeekWithNext;
+
+type Result<T> = std::result::Result<T, SyntaxError>;
 
 pub struct Lexer<'a> {
     source: &'a str,
-    chars: Peekable<CharIndices<'a>>,
+    chars: PeekWithNext<CharIndices<'a>>,
     line: usize,
 }
 
 impl<'a> Lexer<'a> {
-    pub fn parse(source: &str) -> Vec<Token> {
-        let chars = source.char_indices().peekable();
+    pub fn parse(source: &str) -> Result<Vec<Token>> {
+        let chars = PeekWithNext::new(source.char_indices());
         let mut lexer = Lexer { source, chars, line: 1 };
 
         let mut tokens = vec![];
         while !lexer.is_at_end() {
             if let Some(token) = lexer.read_token() {
-                tokens.push(token.unwrap());
+                tokens.push(token?);
             } else {
                 break;
             }
         }
 
-        tokens
+        Ok(tokens)
     }
 
-    fn read_token(&mut self) -> Option<Result<Token<'a>, SyntaxError>> {
+    fn read_token(&mut self) -> Option<Result<Token<'a>>> {
         self.skip_whitespace();
 
         let c = self.advance();
@@ -39,11 +42,11 @@ impl<'a> Lexer<'a> {
         let (start, char) = c?;
 
         if char.is_alphabetic() {
-            return Some(Ok(self.identifier(start)));
+            return Some(self.identifier(start));
         }
 
         if char.is_digit(10) {
-            return Some(Ok(self.number(start)));
+            return Some(self.number(start));
         }
 
         let token_type = match char {
@@ -58,10 +61,7 @@ impl<'a> Lexer<'a> {
             '%' => TokenType::Percent,
             '/' => TokenType::Slash,
             '*' => TokenType::Star,
-            ';' | '\n' | '\r' => {
-                // self.skip_lines(); // TODO
-                TokenType::Line
-            },
+            ';' | '\n' | '\r' => TokenType::Line,
             '!' => {
                 if self.match_next('=') {
                     self.advance();
@@ -113,7 +113,7 @@ impl<'a> Lexer<'a> {
         Some(Ok(self.make_token(start, token_type)))
     }
 
-    fn identifier(&mut self, start: usize) -> Token<'a> {
+    fn identifier(&mut self, start: usize) -> Result<Token<'a>> {
         self.advance_while(|&c| c.is_alphanumeric());
 
         let word = self.token_contents(start);
@@ -122,43 +122,27 @@ impl<'a> Lexer<'a> {
             .map(TokenType::Keyword)
             .unwrap_or(TokenType::Identifier);
 
-        self.make_token(start, token_type)
+        Ok(self.make_token(start, token_type))
     }
+    
+    fn number(&mut self, start: usize) -> Result<Token<'a>> {
+        self.advance_while(|c| c.is_digit(10));
 
-    fn number(&mut self, start: usize) -> Token<'a> {
-        loop {
-            if let Some(peeked) = self.peek() {
-                if peeked.1.is_digit(10) {
-                    self.advance().unwrap();
-                } else {
-                    break;
-                }
-            } else {
-                break;
+        // Look for a fractional part
+        if self.peek().unwrap() == '.' &&
+            self.peek_next().unwrap().is_digit(10) {
+            // Consume the '.'
+            self.advance();
+
+            while self.peek().unwrap().is_digit(10) {
+                self.advance();
             }
         }
 
-        if let Some((_, '.')) = self.peek() {
-            // TODO peekNext
-            self.advance().unwrap();
-
-            loop {
-                if let Some(peeked) = self.peek() {
-                    if peeked.1.is_digit(10) {
-                        self.advance().unwrap();
-                    } else {
-                        break;
-                    }
-                } else {
-                    break;
-                }
-            };
-        };
-
-        self.make_token(start, TokenType::Number)
+        Ok(self.make_token(start, TokenType::Number))
     }
 
-    fn string(&mut self) -> Result<TokenType, SyntaxError> {
+    fn string(&mut self) -> Result<TokenType> {
         self.advance_while(|&c| c != '"');
         if self.is_at_end() {
             return Err(SyntaxError::UnterminatedString);
@@ -184,25 +168,8 @@ impl<'a> Lexer<'a> {
         self.advance_while(|&c| c == ' ' || c == '\t');
     }
 
-    fn skip_lines(&mut self) {
-        self.advance_while(|&c| c == ';' || c == '\n' || c == '\r');
-    }
-
     fn eof(&mut self) -> Token<'a> {
         self.make_token(self.source.len(), TokenType::EOF)
-    }
-
-    fn match_char(&mut self, expected: char) -> bool {
-        if self.is_at_end() {
-            return false;
-        }
-        if self.peek().unwrap().1 != expected {
-            return false;
-        }
-
-        self.advance();
-
-        true
     }
 
     fn token_contents(&mut self, start: usize) -> &'a str {
@@ -215,7 +182,7 @@ impl<'a> Lexer<'a> {
 
     fn advance_while<F>(&mut self, f: F) -> usize where for<'r> F: Fn(&'r char,) -> bool {
         let mut count = 0;
-        while let Some((_, char)) = self.peek() {
+        while let Some(char) = self.peek() {
             if f(&char) {
                 self.advance();
                 count += 1;
@@ -235,12 +202,16 @@ impl<'a> Lexer<'a> {
         })
     }
 
-    fn match_next(&mut self, c: char) -> bool {
-        self.peek().unwrap().1 == c
+    fn match_next(&mut self, c: char) -> bool { // TODO Option???
+        self.peek().unwrap() == c
     }
 
-    fn peek(&mut self) -> Option<&(usize, char)> {
-        self.chars.peek()
+    fn peek_next(&mut self) -> Option<char> {
+        self.chars.peek_next().map(|&(_, c)| c)
+    }
+
+    fn peek(&mut self) -> Option<char> {
+        self.chars.peek().map(|&(_, c)| c)
     }
 
     fn is_at_end(&mut self) -> bool {
@@ -252,20 +223,6 @@ impl<'a> Lexer<'a> {
 mod tests {
     use super::Lexer;
     use crate::scanner::token::{Token, TokenType, Position};
-
-    #[test]
-    fn collapse_lines_into_line() {
-        let input = r#"
-
-
-
-        "#;
-
-        let tokens = Lexer::parse(input);
-        for token in tokens {
-            println!("{:?}", token);
-        }
-    }
 
     #[test]
     fn it_works() {
