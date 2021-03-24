@@ -68,7 +68,7 @@ impl<'a> EvalParser<'a> {
                 left
             }
         } else {
-            panic!("Unexpected token {:?}.", token); // TODO
+            panic!("Unexpected token {:?}.", token);
         }
     }
 
@@ -179,7 +179,7 @@ impl<'a> EvalParser<'a> {
         Expr::new(ExprKind::Block(BlockExpr::new(exprs)))
     }
 
-    fn match_(&mut self, token_type: TokenType) -> bool { // TODO match_ name
+    fn match_(&mut self, token_type: TokenType) -> bool {
         self.peek_type() == token_type
     }
 
@@ -188,13 +188,11 @@ impl<'a> EvalParser<'a> {
             return TokenType::EOF;
         }
 
-        self.tokens.get(self.tokens.len() - 1)
-            .unwrap()
-            .token_type
+        self.tokens[self.tokens.len() - 1].token_type
     }
 
     fn peek(&self) -> &Token<'a> {
-        self.tokens.get(self.tokens.len() - 1).unwrap()
+        &self.tokens[self.tokens.len() - 1]
     }
 
     pub fn expect(&mut self, expect: TokenType) -> Token<'a> {

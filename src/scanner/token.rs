@@ -61,7 +61,10 @@ pub enum TokenType {
 
     Identifier,
 
+    LineComment,
+
     Line,
+
     EOF,
 }
 

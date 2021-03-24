@@ -59,7 +59,7 @@ impl<'a> Lexer<'a> {
             '/' => TokenType::Slash,
             '*' => TokenType::Star,
             ';' | '\n' | '\r' => {
-                self.skip_lines();
+                // self.skip_lines(); // TODO
                 TokenType::Line
             },
             '!' => {
@@ -100,6 +100,12 @@ impl<'a> Lexer<'a> {
                     Err(err) => return Some(Err(err)),
                 }
             },
+            '#' => {
+                // '#' indicates a comment.
+                self.advance_while(|&c| c != '\n');
+                self.advance();
+                TokenType::LineComment
+            }
             _ => {
                 return Some(Err(SyntaxError::UnexpectedChar(char)));
             },
@@ -321,6 +327,19 @@ mod tests {
             print(5)
         else
             print(10)
+"#;
+
+        let tokens = Lexer::parse(input);
+        for token in tokens {
+            println!("{:?}", token);
+        }
+    }
+
+    #[test]
+    fn parse_comments() {
+        let input = r#"
+        # Comment
+        print(10)
 "#;
 
         let tokens = Lexer::parse(input);
