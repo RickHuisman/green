@@ -1,5 +1,5 @@
 use crate::compiler::chunk::Chunk;
-use crate::compiler::value::Value;
+use crate::compiler::value::{Value, value_to_string};
 use crate::compiler::opcode::Opcode;
 use std::collections::HashMap;
 use crate::compiler::object::Object;
@@ -111,55 +111,25 @@ impl VM {
     }
 
     fn define_global(&mut self, chunk: &Chunk) {
-        // FIXME
-        let name = self.read_constant(chunk);
-        match name {
-            Value::Obj(s) => {
-                match s {
-                    Object::String(s) => {
-                        let val = self.peek(0);
-                        self.globals.insert(s, val);
-                        self.pop();
-                    }
-                }
-            }
-            _ => panic!("TODO")
-        }
+        let name = value_to_string(self.read_constant(chunk));
+        let val = self.peek(0);
+        self.globals.insert(name, val);
+        self.pop();
     }
 
     fn get_global(&mut self, chunk: &Chunk) {
-        // FIXME
-        let name = self.read_constant(chunk);
-        match name {
-            Value::Obj(s) => {
-                match s {
-                    Object::String(s) => {
-                        let value = self.globals.get(&s).cloned();
-                        self.push(value.unwrap());
-                    }
-                }
-            }
-            _ => panic!("TODO")
-        }
+        let name = value_to_string(self.read_constant(chunk));
+        let value = self.globals.get(&name).cloned();
+        self.push(value.unwrap()); // TODO Unwrap???
     }
 
     fn set_global(&mut self, chunk: &Chunk) {
-        // FIXME
-        let name = self.read_constant(chunk);
-        match name {
-            Value::Obj(s) => {
-                match s {
-                    Object::String(s) => {
-                        let value = self.peek(0);
-                        if let Some(global) = self.globals.get_mut(&s) {
-                            *global = value;
-                        } else {
-                            panic!("No global with name: {}", s);
-                        }
-                    }
-                }
-            }
-            _ => panic!("TODO")
+        let name = value_to_string(self.read_constant(chunk));
+        let peek = self.peek(0);
+        if let Some(global) = self.globals.get_mut(&name) {
+            *global = peek;
+        } else {
+            panic!("No global with name: {}", name);
         }
     }
 
@@ -192,7 +162,7 @@ impl VM {
         if let Some(local) = self.stack.get_mut(slot as usize) {
             *local = peek;
         } else {
-            panic!() // TODO
+            panic!("No local with name: {}", "TODO"); // TODO Name of local
         }
     }
 

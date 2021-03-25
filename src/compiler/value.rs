@@ -134,3 +134,15 @@ impl PartialOrd for Value {
         }
     }
 }
+
+// TODO There must be a better way to convert Value::Obj(Obj::String()) to String
+pub fn value_to_string(val: Value) -> String {
+    match val {
+        Value::Obj(s) => {
+            match s {
+                Object::String(s) => s,
+            }
+        }
+        _ => panic!("TODO")
+    }
+}

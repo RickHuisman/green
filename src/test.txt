@@ -1,10 +1,11 @@
+var z = 2
 do
     var x = 10
     x = 20 * 2
     print(x)
     do
         var y = 10
-        print(y + x)
+        print(y + x + z)
     end
-    print(y)
 end
+print(z)
