@@ -91,6 +91,8 @@ fn disassemble_instruction(f: &mut Formatter<'_>, chunk: &Chunk, offset: &mut us
         Opcode::JumpIfFalse => jump_instruction(chunk, f, "OP_JUMP_IF_FALSE", 1, offset),
         Opcode::Jump => jump_instruction(chunk, f, "OP_JUMP", 1, offset),
         Opcode::Pop => simple_instruction(f, "OP_POP", offset),
+        Opcode::GetLocal => byte_instruction(chunk, f, "OP_GET_LOCAL", offset),
+        Opcode::SetLocal => byte_instruction(chunk, f, "OP_SET_LOCAL", offset),
     }
 }
 
@@ -126,4 +128,22 @@ fn jump_instruction(
     writeln!(f, "{:-16} {:4X} -> {:4X}", name, offset, *offset + 3 + sign * jump as usize);
 
     *offset + 3
+}
+
+// private int ByteInstruction(StringBuilder builder, string name, int offset)
+// {
+// var slot = Code[offset + 1];
+// builder.AppendLine($"{name,-16} {slot,4:X}");
+// return offset + 2;
+// }
+
+fn byte_instruction(
+    chunk: &Chunk,
+    f: &mut Formatter<'_>,
+    name: &str,
+    offset: &mut usize,
+) -> usize {
+    let slot = chunk.code[*offset + 1];
+    writeln!(f, "{:-16}, {:4X}", name, slot);
+    *offset + 2
 }

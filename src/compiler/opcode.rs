@@ -17,7 +17,9 @@ pub enum Opcode {
     SetGlobal,
     JumpIfFalse,
     Jump,
-    Pop
+    Pop,
+    GetLocal,
+    SetLocal,
 }
 
 impl From<u8> for Opcode {
@@ -41,6 +43,8 @@ impl From<u8> for Opcode {
             0x0f => Opcode::JumpIfFalse,
             0x10 => Opcode::Jump,
             0x11 => Opcode::Pop,
+            0x12 => Opcode::GetLocal,
+            0x13 => Opcode::SetLocal,
             _ => panic!("No opcode for byte: {}", byte),
         }
     }

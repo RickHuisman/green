@@ -42,6 +42,8 @@ impl VM {
                 Opcode::JumpIfFalse => self.jump_if_false(chunk),
                 Opcode::Jump => self.jump(chunk),
                 Opcode::Pop => { self.pop(); },
+                Opcode::GetLocal => self.get_local(chunk),
+                Opcode::SetLocal => self.set_local(chunk),
             }
         }
     }
@@ -177,6 +179,21 @@ impl VM {
     fn print(&mut self) {
         let popped = self.pop(); // TODO should not pop value of stack because it's an expression
         println!("{:?}", popped); // TODO Implement display for Value enum
+    }
+
+    fn get_local(&mut self, chunk: &Chunk) {
+        let slot = self.read_byte(chunk);
+        self.push(self.stack[slot as usize].clone()); // TODO Clone???
+    }
+
+    fn set_local(&mut self, chunk: &Chunk) {
+        let slot = self.read_byte(chunk);
+        let peek = self.peek(0);
+        if let Some(local) = self.stack.get_mut(slot as usize) {
+            *local = peek;
+        } else {
+            panic!() // TODO
+        }
     }
 
     fn read_constant(&mut self, chunk: &Chunk) -> Value {

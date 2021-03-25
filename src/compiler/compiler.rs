@@ -1,4 +1,4 @@
-use crate::parser::ast::expr::{Expr, ExprKind, LiteralExpr, BinaryExpr, BinaryOperator, UnaryExpr, UnaryOperator, BlockExpr, GroupingExpr, VarSetExpr, VarGetExpr, VarAssignExpr, IfExpr, IfElseExpr};
+use crate::parser::ast::expr::{Expr, ExprKind, LiteralExpr, BinaryExpr, BinaryOperator, UnaryExpr, UnaryOperator, BlockExpr, GroupingExpr, VarSetExpr, VarGetExpr, VarAssignExpr, IfExpr, IfElseExpr, Variable};
 use crate::compiler::opcode::Opcode;
 use crate::compiler::value::Value;
 use crate::compiler::chunk::Chunk;
@@ -9,7 +9,7 @@ use crate::compiler::local::Local;
 pub struct Compiler {
     chunk: Chunk,
     locals: Vec<Local>,
-    scope_depth: usize,
+    scope_depth: i32,
 }
 
 impl Compiler {
@@ -40,7 +40,7 @@ impl Compiler {
             ExprKind::Block(block) => self.compile_block(block),
             ExprKind::Print(print) => self.compile_print(print),
             ExprKind::Grouping(grouping) => self.compile_grouping(grouping),
-            ExprKind::VarAssign(var) => self.compile_declare_var(var),
+            ExprKind::VarAssign(var) => self.compile_var_expr(var),
             ExprKind::VarSet(var) => self.compile_set_var(var),
             ExprKind::VarGet(var) => self.compile_get_var(var),
             ExprKind::If(if_expr) => self.compile_if(if_expr),
@@ -101,26 +101,92 @@ impl Compiler {
         self.compile_expr(*grouping.expr);
     }
 
-    fn compile_declare_var(&mut self, var: VarAssignExpr) {
+    fn compile_var_expr(&mut self, var: VarAssignExpr) {
+        // TODO Check if initialized -> if not init with nil
         self.compile_expr(var.initializer);
 
+        if self.scope_depth > 0 {
+            // Local
+            self.compile_declare_var(var.variable);
+        } else {
+            // Global
+            self.compile_define_var(var.variable);
+        }
+    }
+
+    // var x = 10
+    fn compile_declare_var(&mut self, var: Variable) {
+        if self.scope_depth == 0 {
+            return;
+        }
+
+        for local in &self.locals {
+            if *local.depth() != -1_i32 && local.depth() < &self.scope_depth {
+                break;
+            }
+
+            if var.name == *local.name() {
+                panic!("Already a variable called {} in this scope.", var.name);
+            }
+        }
+
+        self.add_local(var.name.to_string());
+        self.mark_initialized();
+    }
+
+    fn compile_define_var(&mut self, var: Variable) {
+        if self.scope_depth > 0 {
+            self.mark_initialized();
+            return;
+        }
+
         self.emit(Opcode::DefineGlobal);
-        let constant_id = self.chunk.add_constant(Value::Obj(var.variable.name.into()));
+        let constant_id = self.chunk.add_constant(Value::Obj(var.name.into()));
         self.emit_byte(constant_id);
     }
 
+    // x = 10
     fn compile_set_var(&mut self, var: VarSetExpr) {
         self.compile_expr(var.initializer);
 
-        self.emit(Opcode::SetGlobal);
-        let constant_id = self.chunk.add_constant(Value::Obj(var.variable.name.into()));
-        self.emit_byte(constant_id);
+        let arg = self.resolve_local(&var.variable.name);
+        if arg != -1 {
+            // Local
+            self.emit(Opcode::SetLocal);
+            self.emit_byte(arg as u8);
+        } else {
+            // Global
+            self.emit(Opcode::SetGlobal);
+            let test = Value::Obj(var.variable.name.into());
+            let constant_id = self.chunk.add_constant(test);
+            self.emit_byte(constant_id);
+            // let strVal2 = Value.Obj(ObjString.CopyString(set.Var.Name));
+            // var constant2 = CurrentChunk().AddConstant(strVal2);
+            // CurrentChunk().WriteChunk((byte)constant2);
+        }
+
+        // self.emit(Opcode::SetGlobal);
+        // let constant_id = self.chunk.add_constant(Value::Obj(var.variable.name.into()));
+        // self.emit_byte(constant_id);
     }
 
+    // print(x)
     fn compile_get_var(&mut self, var: VarGetExpr) {
-        self.emit(Opcode::GetGlobal);
-        let constant_id = self.chunk.add_constant(Value::Obj(var.variable.name.into()));
-        self.emit_byte(constant_id);
+        let arg = self.resolve_local(&var.variable.name);
+        if arg != -1 {
+            // Local
+            self.emit(Opcode::GetLocal);
+            self.emit_byte(arg as u8);
+        } else {
+            // Global
+            self.emit(Opcode::GetGlobal);
+            let test = Value::Obj(var.variable.name.into());
+            let constant_id = self.chunk.add_constant(test);
+            self.emit_byte(constant_id);
+        }
+        // self.emit(Opcode::GetGlobal);
+        // let constant_id = self.chunk.add_constant(Value::Obj(var.variable.name.into()));
+        // self.emit_byte(constant_id);
     }
 
     fn compile_if(&mut self, if_expr: IfExpr) {
@@ -190,12 +256,45 @@ impl Compiler {
         }
     }
 
+    fn resolve_local(&self, name: &String) -> i32 {
+        for (i, local) in self.locals.iter().enumerate() {
+            if *name == *local.name() {
+                if *local.depth() == -1 {
+                    panic!("Can't read local variable {} in it's own initializer.", name);
+                }
+
+                return i as i32;
+            }
+        }
+
+        -1
+    }
+
+    fn add_local(&mut self, name: String) {
+        self.locals.push(Local::new(name, -1_i32));
+    }
+
+    fn mark_initialized(&mut self) {
+        if self.scope_depth == 0 {
+            return;
+        }
+
+        let index = &self.locals.len() - 1;
+        *self.locals[index].depth_mut() = self.scope_depth;
+    }
+
     fn begin_scope(&mut self) {
         self.scope_depth += 1;
     }
 
     fn end_scope(&mut self) {
         self.scope_depth -= 1;
+
+        while self.locals.len() > 0 &&
+            self.locals[self.locals.len() -1].depth() > &self.scope_depth {
+            self.emit(Opcode::Pop);
+            self.locals.pop();
+        }
     }
 
     fn emit_string(&mut self, s: &str) {
