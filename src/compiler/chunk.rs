@@ -87,6 +87,7 @@ fn disassemble_instruction(f: &mut Formatter<'_>, chunk: &Chunk, offset: &mut us
         Opcode::Negate => simple_instruction(f, "OP_NOT", offset),
         Opcode::DefineGlobal => constant_instruction(chunk, f, "OP_DEFINE_GLOBAL", offset),
         Opcode::GetGlobal => constant_instruction(chunk, f, "OP_GET_GLOBAL", offset),
+        Opcode::SetGlobal => constant_instruction(chunk, f, "OP_SET_GLOBAL", offset),
         Opcode::JumpIfFalse => jump_instruction(chunk, f, "OP_JUMP_IF_FALSE", 1, offset),
         Opcode::Jump => jump_instruction(chunk, f, "OP_JUMP", 1, offset),
         Opcode::Pop => simple_instruction(f, "OP_POP", offset),

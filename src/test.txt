@@ -1,2 +1,5 @@
-var x = 10
-print(x)
+do
+    var x = 10
+    x = 20 * 2
+    print(x)
+end

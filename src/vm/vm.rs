@@ -38,6 +38,7 @@ impl VM {
                 Opcode::Negate => self.negate(),
                 Opcode::DefineGlobal => self.define_global(chunk),
                 Opcode::GetGlobal => self.get_global(chunk),
+                Opcode::SetGlobal => self.set_global(chunk),
                 Opcode::JumpIfFalse => self.jump_if_false(chunk),
                 Opcode::Jump => self.jump(chunk),
                 Opcode::Pop => { self.pop(); },
@@ -133,6 +134,26 @@ impl VM {
                     Object::String(s) => {
                         let value = self.globals.get(&s).cloned();
                         self.push(value.unwrap());
+                    }
+                }
+            }
+            _ => panic!("TODO")
+        }
+    }
+
+    fn set_global(&mut self, chunk: &Chunk) {
+        // FIXME
+        let name = self.read_constant(chunk);
+        match name {
+            Value::Obj(s) => {
+                match s {
+                    Object::String(s) => {
+                        let value = self.peek(0);
+                        if let Some(global) = self.globals.get_mut(&s) {
+                            *global = value;
+                        } else {
+                            panic!("No global with name: {}", s);
+                        }
                     }
                 }
             }

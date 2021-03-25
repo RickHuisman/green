@@ -4,14 +4,26 @@ use crate::compiler::value::Value;
 use crate::compiler::chunk::Chunk;
 use crate::compiler::object::Object;
 use std::process::exit;
+use crate::compiler::local::Local;
 
 pub struct Compiler {
     chunk: Chunk,
+    locals: Vec<Local>,
+    scope_depth: usize,
 }
 
 impl Compiler {
+    fn new() -> Self {
+        let locals = Vec::with_capacity(u8::MAX as usize);
+        Compiler {
+            chunk: Chunk::new(),
+            locals,
+            scope_depth: 0,
+        }
+    }
+
     pub fn compile(exprs: Vec<Expr>) -> Chunk { // TODO Accept &str not exprs
-        let mut compiler = Compiler { chunk: Chunk::new() };
+        let mut compiler = Compiler::new();
 
         for expr in exprs {
             compiler.compile_expr(expr);
@@ -73,9 +85,11 @@ impl Compiler {
     }
 
     fn compile_block(&mut self, block: BlockExpr) {
+        self.begin_scope();
         for expr in block.expressions {
             self.compile_expr(expr);
         }
+        self.end_scope();
     }
 
     fn compile_print(&mut self, expr: Expr) {
@@ -96,7 +110,11 @@ impl Compiler {
     }
 
     fn compile_set_var(&mut self, var: VarSetExpr) {
-        todo!()
+        self.compile_expr(var.initializer);
+
+        self.emit(Opcode::SetGlobal);
+        let constant_id = self.chunk.add_constant(Value::Obj(var.variable.name.into()));
+        self.emit_byte(constant_id);
     }
 
     fn compile_get_var(&mut self, var: VarGetExpr) {
@@ -170,6 +188,14 @@ impl Compiler {
             LiteralExpr::False => todo!(),
             _ => todo!() // TODO NilLiteral
         }
+    }
+
+    fn begin_scope(&mut self) {
+        self.scope_depth += 1;
+    }
+
+    fn end_scope(&mut self) {
+        self.scope_depth -= 1;
     }
 
     fn emit_string(&mut self, s: &str) {
