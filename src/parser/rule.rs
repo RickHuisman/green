@@ -1,7 +1,7 @@
 use crate::scanner::token::{TokenType, Token, Keyword};
 use crate::parser::parser::EvalParser;
 use std::collections::HashMap;
-use crate::parser::ast::expr::{Expr, LiteralExpr, ExprKind, BinaryExpr, BinaryOperator, GroupingExpr};
+use crate::parser::ast::expr::{Expr, LiteralExpr, ExprKind, BinaryExpr, BinaryOperator, GroupingExpr, CallExpr};
 
 pub trait PrefixParser {
     fn parse<'a>(&self, parser: &mut EvalParser, token: Token<'a>) -> Expr;
@@ -57,11 +57,18 @@ pub fn get_infix_rule(token: &Token) -> Option<Box<dyn InfixParser>> {
     map.insert(TokenType::LessThan, InfixOperatorParser::new(Precedence::Comparison));
     map.insert(TokenType::LessThanEqual, InfixOperatorParser::new(Precedence::Comparison));
 
+    let mut map2 = HashMap::new();
+    map2.insert(TokenType::LeftParen, CallParser::new());
+
     if let Some(token_type) = map.get(&token.token_type) {
         Some(Box::new(*token_type))
     } else {
-        println!("No rule for token: {:?}", token);
-        None
+        if let Some(token_type) = map2.get(&token.token_type) {
+            Some(Box::new(*token_type))
+        } else {
+            println!("No rule for token: {:?}", token);
+            None
+        }
     }
 }
 
@@ -90,6 +97,7 @@ pub enum Precedence {
     Factor = 7,
     // * /
     Unary = 8, // ! -
+    Call = 9, // x()
 }
 
 #[derive(Copy, Clone)]
@@ -157,5 +165,26 @@ impl InfixParser for InfixOperatorParser {
 
     fn get_precedence(&self) -> Precedence {
         self.precedence
+    }
+}
+
+#[derive(Copy, Clone)]
+struct CallParser {}
+
+impl CallParser {
+    pub fn new() -> Self { CallParser {} }
+}
+
+impl InfixParser for CallParser {
+    fn parse<'a>(&self, parser: &mut EvalParser, left: Expr, token: Token<'a>) -> Expr {
+        // TODO Args
+        parser.expect(TokenType::RightParen);
+        Expr::new(ExprKind::Call(
+            CallExpr::new(left)
+        ))
+    }
+
+    fn get_precedence(&self) -> Precedence {
+        Precedence::Call
     }
 }

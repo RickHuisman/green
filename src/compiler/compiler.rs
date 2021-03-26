@@ -1,9 +1,8 @@
-use crate::parser::ast::expr::{Expr, ExprKind, LiteralExpr, BinaryExpr, BinaryOperator, UnaryExpr, UnaryOperator, BlockExpr, GroupingExpr, VarSetExpr, VarGetExpr, VarAssignExpr, IfExpr, IfElseExpr, Variable};
+use crate::parser::ast::expr::{Expr, ExprKind, LiteralExpr, BinaryExpr, BinaryOperator, UnaryExpr, UnaryOperator, BlockExpr, GroupingExpr, VarSetExpr, VarGetExpr, VarAssignExpr, IfExpr, IfElseExpr, Variable, FunctionExpr, CallExpr};
 use crate::compiler::opcode::Opcode;
 use crate::compiler::value::Value;
 use crate::compiler::chunk::Chunk;
 use crate::compiler::object::{Object, EvalFunction, EvalFunctionType};
-use std::process::exit;
 use crate::compiler::local::Local;
 
 #[derive(Debug, Clone)]
@@ -18,16 +17,12 @@ struct CompilerInstance {
 impl CompilerInstance {
     pub fn new(function_type: EvalFunctionType) -> Self {
         CompilerInstance {
-            function: EvalFunction::new("test".to_string()),
+            function: EvalFunction::new(),
             function_type,
             locals: Vec::with_capacity(u8::max_value() as usize),
             scope_depth: 0,
             enclosing: Box::new(None),
         }
-    }
-
-    fn chunk_mut(&mut self) -> &mut Chunk {
-        self.function.chunk_mut()
     }
 }
 
@@ -47,7 +42,7 @@ impl Compiler {
             compiler.compile_expr(expr);
         }
 
-        compiler.end_compiler().clone() // TODO Clone
+        compiler.end_compiler()
     }
 
     fn compile_expr(&mut self, expr: Expr) {
@@ -63,6 +58,8 @@ impl Compiler {
             ExprKind::VarGet(var) => self.compile_get_var(var),
             ExprKind::If(if_expr) => self.compile_if(if_expr),
             ExprKind::IfElse(if_else_expr) => self.compile_if_else(if_else_expr),
+            ExprKind::Function(function) => self.compile_function(function),
+            ExprKind::Call(call) => self.compile_call(call),
         }
     }
 
@@ -223,7 +220,7 @@ impl Compiler {
         let then_jump = self.emit_jump(Opcode::JumpIfFalse);
         self.emit(Opcode::Pop);
 
-        for expr in if_else_expr.then_clause {
+        for expr in if_else_expr.then_clause.expressions {
             self.compile_expr(expr);
         }
 
@@ -232,11 +229,42 @@ impl Compiler {
         self.patch_jump(then_jump);
         self.emit(Opcode::Pop);
 
-        for expr in if_else_expr.else_clause {
+        for expr in if_else_expr.else_clause.expressions {
             self.compile_expr(expr);
         }
 
         self.patch_jump(else_jump);
+    }
+
+    fn compile_function(&mut self, fun_expr: FunctionExpr) {
+        let current_copy = self.current.clone();
+        self.current = CompilerInstance::new(EvalFunctionType::Function);
+        self.current.enclosing = Box::new(Some(current_copy));
+
+        // Set function name.
+        *self.current.function.name_mut() = fun_expr.variable.name.clone();
+        *self.current.function.chunk_mut().name_mut() = fun_expr.variable.name.clone();
+
+        self.begin_scope();
+
+        // TODO Compile parameters.
+
+        // Compile body.
+        self.compile_block(fun_expr.declaration.body);
+
+        // Create the function object.
+        let function = self.end_compiler();
+        self.emit_constant(Value::Obj(Object::Function(function)));
+
+        self.compile_define_var(fun_expr.variable); // TODO fun is always global?
+    }
+
+    fn compile_call(&mut self, call: CallExpr) {
+        // let arity =
+        self.compile_expr(call.callee);
+
+        self.emit(Opcode::Call);
+        self.emit_byte(0) // TODO emit arity
     }
 
     fn emit_jump(&mut self, instruction: Opcode) -> usize {
@@ -305,15 +333,17 @@ impl Compiler {
         }
     }
 
-    fn end_compiler(mut self) -> EvalFunction {
+    fn end_compiler(&mut self) -> EvalFunction {
         self.emit_return();
-        let fun = self.current.function;
+        let fun_copy = self.current.function.clone();
 
-        if let Some(enclosing) = *self.current.enclosing {
-            self.current = enclosing.clone();
+        println!("{}", self.current_chunk());
+
+        if let Some(enclosing) = *self.current.enclosing.clone() {
+            self.current = enclosing;
         }
 
-        fun
+        fun_copy
     }
 
     fn current_chunk(&mut self) -> &mut Chunk {

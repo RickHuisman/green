@@ -32,6 +32,17 @@ pub enum ExprKind {
     Grouping(GroupingExpr),
     If(IfExpr),
     IfElse(IfElseExpr),
+    Function(FunctionExpr),
+    Call(CallExpr),
+}
+
+impl ExprKind {
+    pub fn block(self) -> Option<BlockExpr> {
+        match self {
+            ExprKind::Block(block) => Some(block),
+            _ => None,
+        }
+    }
 }
 
 #[derive(PartialEq, Debug)]
@@ -190,12 +201,48 @@ impl IfExpr {
 #[derive(PartialEq, Debug)]
 pub struct IfElseExpr {
     pub condition: Expr,
-    pub then_clause: Vec<Expr>,
-    pub else_clause: Vec<Expr>,
+    pub then_clause: BlockExpr,
+    pub else_clause: BlockExpr,
 }
 
 impl IfElseExpr {
-    pub fn new(condition: Expr, then_clause: Vec<Expr>, else_clause: Vec<Expr>) -> Self {
+    pub fn new(condition: Expr, then_clause: BlockExpr, else_clause: BlockExpr) -> Self {
         IfElseExpr { condition, then_clause, else_clause }
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct FunctionDeclaration {
+    // TODO Parameters
+    pub body: BlockExpr,
+}
+
+impl FunctionDeclaration {
+    pub fn new(body: BlockExpr) -> Self {
+        FunctionDeclaration { body }
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct FunctionExpr {
+    pub variable: Variable,
+    pub declaration: FunctionDeclaration,
+}
+
+impl FunctionExpr {
+    pub fn new(variable: Variable, declaration: FunctionDeclaration) -> Self {
+        FunctionExpr { variable, declaration }
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct CallExpr {
+    pub callee: Expr,
+    // TODO Args
+}
+
+impl CallExpr {
+    pub fn new(callee: Expr) -> Self {
+        CallExpr { callee }
     }
 }

@@ -1,10 +1,4 @@
-use crate::parser::parser::EvalParser;
-use crate::scanner::lexer::Lexer;
-use crate::compiler::chunk::Chunk;
 use crate::vm::vm::VM;
-use crate::compiler::opcode::Opcode;
-use crate::parser::ast::expr::{Expr, ExprKind, LiteralExpr, BinaryExpr, BinaryOperator, UnaryExpr, UnaryOperator};
-use crate::compiler::compiler::Compiler;
 
 mod scanner;
 mod parser;
@@ -19,10 +13,6 @@ fn main() {
 }
 
 fn run(source: &str) {
-    // let exprs = EvalParser::parse(source);
-    //
-    // let mut function = Compiler::compile(exprs);
-    // println!("{}", function.chunk_mut());
     let mut vm = VM::new();
     vm.interpret(source);
 }

@@ -17,15 +17,20 @@ pub struct EvalFunction {
     name: String,
     chunk: Chunk,
     arity: u8,
+    // TODO Type
 }
 
 impl EvalFunction {
-    pub fn new(name: String) -> Self {
-        EvalFunction { name, chunk: Chunk::new(), arity: 0 }
+    pub fn new() -> Self {
+        EvalFunction { name: "".to_string(), chunk: Chunk::new(), arity: 0 }
     }
 
     pub fn chunk(&self) -> &Chunk {
         &self.chunk
+    }
+
+    pub fn name_mut(&mut self) -> &mut String {
+        &mut self.name
     }
 
     pub fn chunk_mut(&mut self) -> &mut Chunk {

@@ -1,5 +1,4 @@
 use crate::scanner::token::{Token, TokenType};
-use crate::scanner::lexer::Lexer;
 
 /// Cleans a sequence of tokens into a token sequence of meaningful tokens.
 /// Tokens that are removed from the sequence:

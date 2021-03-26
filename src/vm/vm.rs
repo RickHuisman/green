@@ -2,46 +2,34 @@ use crate::compiler::chunk::Chunk;
 use crate::compiler::value::{Value, value_to_string};
 use crate::compiler::opcode::Opcode;
 use std::collections::HashMap;
-use crate::compiler::object::Object;
+use crate::compiler::object::{Object, EvalFunction};
 use crate::vm::callframe::CallFrame;
 use crate::compiler::compiler::Compiler;
 use crate::parser::parser::EvalParser;
-use crate::compiler::value::Value::Obj;
 
 pub struct VM {
-    ip: usize,
     stack_top: usize,
     stack: Vec<Value>,
     frames: Vec<CallFrame>,
     globals: HashMap<String, Value>,
-    frame: Option<CallFrame>,
 }
 
 impl VM {
     pub fn new() -> Self {
         VM {
-            ip: 0,
             stack_top: 0,
             stack: vec![],
             frames: Vec::with_capacity(64),
             globals: HashMap::new(),
-            frame: None,
         }
     }
 
     pub fn interpret(&mut self, source: &str) {
         let exprs = EvalParser::parse(source);
         let function = Compiler::compile(exprs);
-        println!("{}", function.chunk());
 
         self.push(Value::Obj(Object::Function(function.clone())));
-        self.frames.push(
-            CallFrame::new(
-                function.clone(),
-                function.chunk().code().len(),
-                self.stack.clone(),
-            )
-        );
+        self.call_value(Value::Obj(Object::Function(function)), 0);
 
         self.run()
     }
@@ -71,13 +59,25 @@ impl VM {
                 Opcode::GetLocal => self.get_local(),
                 Opcode::SetLocal => self.set_local(),
                 Opcode::Nil => self.nil(),
+                Opcode::Call => {
+                    let arity = self.read_byte() as usize;
+                    let peek = self.peek(arity);
+                    if !self.call_value(peek, arity) {
+                        panic!("TODO");
+                    }
+                },
             }
         }
     }
 
     fn ret(&mut self) {
-        let popped = self.pop();
-        println!("{:?}", popped); // TODO
+        if let Some(frame) = self.frames.pop() {
+            let result = self.pop();
+            self.stack.truncate(frame.stack_start);
+            self.push(result);
+        } else {
+            panic!("Cannot return from top-level.");
+        }
     }
 
     fn constant(&mut self) {
@@ -179,20 +179,30 @@ impl VM {
     }
 
     fn get_local(&mut self) {
-        let slot = self.read_byte();
-        let val = &self.frame().slots[slot as usize];
-        self.push(val.clone());
-        // self.push(self.stack[slot as usize].clone()); // TODO Clone???
+        let start = self.frame().stack_start;
+        let idx = self.read_byte() as usize;
+        let val = self.stack[start + idx].clone(); // Clone???
+        self.push(val);
+
     }
 
     fn set_local(&mut self) {
-        let slot = self.read_byte();
-        let peek = self.peek(0);
-        if let Some(local) = self.frame_mut().slots.get_mut(slot as usize) {
-            *local = peek;
-        } else {
-            panic!("No local with name: {}", "TODO"); // TODO Name of local
-        }
+        // We peek because we would just push it back after
+        // the assignment occurs.
+        let val = self.peek(0);
+        let start = self.frame().stack_start;
+        let idx = self.read_byte() as usize;
+        self.stack[start + idx] = val;
+
+        // let slot = self.read_byte();
+        // let peek = self.peek(0);
+        // if let Some(local) = self.frame_mut().slots.get_mut(slot as usize) {
+        //     *local = peek;
+        // } else {
+        //     panic!("No local with name: {}", "TODO"); // TODO Name of local
+        // }
+
+
         // if let Some(local) = self.stack.get_mut(slot as usize) {
         //     *local = peek;
         // } else {
@@ -204,23 +214,50 @@ impl VM {
         self.push(Value::Nil);
     }
 
+    fn call(&mut self, fun: EvalFunction, arity: usize) -> bool {
+        let last = self.stack.len();
+        let frame_start = last - (arity + 1) as usize;
+
+        self.frames.push(CallFrame::new(
+            fun,
+            frame_start,
+        ));
+
+        true
+    }
+
+    fn call_value(&mut self, callee: Value, arg_count: usize) -> bool {
+        // Check if callee is obj
+        match callee {
+            Value::Obj(obj) => {
+                match obj {
+                    Object::Function(fun) => {
+                        self.call(fun, 0) // TODO arity
+                    }
+                    _ => panic!("Can only call functions"),
+                }
+            }
+            _ => panic!("Can only call functions"),
+        }
+    }
+
     fn read_constant(&mut self) -> Value {
         let constant_index = self.read_byte();
         self.current_chunk_mut().constants()[constant_index as usize].clone()
     }
 
     fn read_byte(&mut self) -> u8 {
-        let index = self.ip;
+        let index = self.frame().ip;
         let byte = self.current_chunk_mut().code()[index];
-        self.ip = self.ip + 1;
+        self.frame_mut().ip += 1;
         byte
     }
 
     fn read_short(&mut self) -> u16 {
-        self.ip += 2;
+        self.frame_mut().ip += 2;
 
-        let lo_index = self.ip - 2;
-        let hi_index = self.ip - 1;
+        let lo_index = self.frame().ip - 2;
+        let hi_index = self.frame().ip - 1;
 
         let lo = self.current_chunk_mut().code()[lo_index] as u16;
         let hi = self.current_chunk_mut().code()[hi_index] as u16;
@@ -228,7 +265,7 @@ impl VM {
     }
 
     fn is_at_end(&self) -> bool {
-        self.ip >= self.current_chunk().code().len()
+        self.frames.is_empty()
     }
 
     fn push(&mut self, value: Value) {

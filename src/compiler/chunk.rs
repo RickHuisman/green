@@ -5,6 +5,7 @@ use crate::compiler::opcode::Opcode;
 
 #[derive(Debug, Clone)]
 pub struct Chunk {
+    name: String,
     code: Vec<u8>,
     constants: Vec<Value>,
     lines: Vec<usize>
@@ -12,7 +13,7 @@ pub struct Chunk {
 
 impl Chunk {
     pub fn new() -> Self {
-        Chunk { code: vec![], constants: vec![], lines: vec![] }
+        Chunk { name: "".to_string(), code: vec![], constants: vec![], lines: vec![] }
     }
 
     pub fn write(&mut self, opcode: Opcode, line: usize) {
@@ -37,6 +38,10 @@ impl Chunk {
         &mut self.code
     }
 
+    pub fn name_mut(&mut self) -> &mut String {
+        &mut self.name
+    }
+
     pub fn constants(&self) -> &Vec<Value> {
         &self.constants
     }
@@ -44,7 +49,7 @@ impl Chunk {
 
 impl Display for Chunk {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        writeln!(f, "== TODO chunk ==");
+        writeln!(f, "== {} chunk ==", self.name);
 
         let mut offset = 0;
         while offset < self.code.len() {
@@ -95,6 +100,7 @@ fn disassemble_instruction(f: &mut Formatter<'_>, chunk: &Chunk, offset: &mut us
         Opcode::GetLocal => byte_instruction(chunk, f, "OP_GET_LOCAL", offset),
         Opcode::SetLocal => byte_instruction(chunk, f, "OP_SET_LOCAL", offset),
         Opcode::Nil => simple_instruction(f, "OP_NIL", offset),
+        Opcode::Call => byte_instruction(chunk, f, "OP_CALL", offset),
     }
 }
 

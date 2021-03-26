@@ -1,11 +1,9 @@
 use crate::scanner::lexer::Lexer;
 use crate::scanner::token::{Token, TokenType, Keyword, Position};
 use crate::parser::rule::{Precedence, get_prefix_rule, get_precedence, get_infix_rule};
-use crate::parser::ast::expr::{Expr, ExprKind, BlockExpr, LiteralExpr, Variable, VarSetExpr, VarGetExpr, VarAssignExpr, IfExpr, IfElseExpr};
+use crate::parser::ast::expr::{Expr, ExprKind, BlockExpr, LiteralExpr, Variable, VarSetExpr, VarGetExpr, VarAssignExpr, IfExpr, IfElseExpr, FunctionDeclaration, FunctionExpr};
 use crate::parser::ast::expr::ExprKind::{Literal, Block};
 use crate::scanner::token::TokenType::Line;
-use std::any::Any;
-use std::borrow::Borrow;
 use crate::scanner::morpher::morph;
 
 pub struct EvalParser<'a> {
@@ -45,6 +43,7 @@ impl<'a> EvalParser<'a> {
     fn parse_top_level_expression(&mut self) -> Expr {
         match self.peek_type() {
             TokenType::Keyword(Keyword::Print) => self.parse_print(),
+            TokenType::Keyword(Keyword::Def) => self.declare_def(),
             TokenType::Keyword(Keyword::Var) => self.declare_var(),
             TokenType::Keyword(Keyword::Do) => self.parse_do(),
             TokenType::Keyword(Keyword::If) => self.parse_if(),
@@ -92,6 +91,27 @@ impl<'a> EvalParser<'a> {
         Expr::new(ExprKind::Print(self.parse_expression()))
     }
 
+    fn declare_def(&mut self) -> Expr {
+        self.expect(TokenType::Keyword(Keyword::Def));
+
+        let identifier = self.expect(TokenType::Identifier);
+
+        self.expect(TokenType::LeftParen);
+        self.expect(TokenType::RightParen);
+
+        self.expect(TokenType::Line);
+
+        let body = self.parse_block().node.block().unwrap(); // TODO Unwrap
+
+        let fun_decl = FunctionDeclaration::new(body);
+        Expr::new(ExprKind::Function(
+            FunctionExpr::new(
+                Variable::new(identifier.source.to_string()),
+                fun_decl,
+            )
+        ))
+    }
+
     fn declare_var(&mut self) -> Expr {
         self.expect(TokenType::Keyword(Keyword::Var));
 
@@ -129,6 +149,10 @@ impl<'a> EvalParser<'a> {
     }
 
     fn parse_do(&mut self) -> Expr {
+        // Consume "do" keyword
+        self.expect(TokenType::Keyword(Keyword::Do));
+        self.expect(TokenType::Line);
+
         self.parse_block()
     }
 
@@ -152,31 +176,26 @@ impl<'a> EvalParser<'a> {
 
             self.expect(TokenType::Line);
 
-            // TODO Multiple exprs in then block???
-            let mut else_clause = vec![];
-            while !self.match_(TokenType::Keyword(Keyword::End)) &&
-                !self.match_(TokenType::Keyword(Keyword::Else))
-            {
-                else_clause.push(self.parse_top_level_expression());
-                self.expect(TokenType::Line);
-            }
+            let else_clause = self.parse_block().node.block().unwrap(); // TODO Unwrap
 
-            ExprKind::IfElse(IfElseExpr::new(cond, then, else_clause))
+            // while !self.match_(TokenType::Keyword(Keyword::End)) &&
+            //     !self.match_(TokenType::Keyword(Keyword::Else))
+            // {
+            //     else_clause.push(self.parse_top_level_expression());
+            //     self.expect(TokenType::Line);
+            // }
+
+            ExprKind::IfElse(IfElseExpr::new(cond, BlockExpr::new(then), else_clause))
         } else {
+            self.expect(TokenType::Keyword(Keyword::End));
             ExprKind::If(IfExpr::new(cond, then))
         };
-
-        self.expect(TokenType::Keyword(Keyword::End));
 
         Expr::new(expr_kind)
     }
 
     fn parse_block(&mut self) -> Expr {
         // TODO Check for single line expr: do print(10) end
-
-        // Consume "do" keyword
-        self.expect(TokenType::Keyword(Keyword::Do));
-        self.expect(TokenType::Line);
 
         let mut exprs = vec![];
         while !self.match_(TokenType::Keyword(Keyword::End)) {

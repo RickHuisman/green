@@ -1,5 +1,4 @@
 use std::str::{CharIndices, FromStr};
-use std::iter::Peekable;
 use crate::scanner::token::{Token, TokenType, Position, Keyword};
 use crate::scanner::error::SyntaxError;
 use crate::scanner::peek::PeekWithNext;

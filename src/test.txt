@@ -1,3 +1,17 @@
-if 10 > 5 then
-    print(10)
+do
+    var x = 10
+    x = 20
+    print(x)
 end
+
+var y = 10
+
+def greet()
+    if y > 5 then
+        print("Hello!")
+    else
+        print("Foo!")
+        print("Bar!")
+    end
+end
+greet()
