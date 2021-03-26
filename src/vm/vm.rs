@@ -3,29 +3,55 @@ use crate::compiler::value::{Value, value_to_string};
 use crate::compiler::opcode::Opcode;
 use std::collections::HashMap;
 use crate::compiler::object::Object;
+use crate::vm::callframe::CallFrame;
+use crate::compiler::compiler::Compiler;
+use crate::parser::parser::EvalParser;
+use crate::compiler::value::Value::Obj;
 
 pub struct VM {
     ip: usize,
     stack_top: usize,
     stack: Vec<Value>,
+    frames: Vec<CallFrame>,
     globals: HashMap<String, Value>,
+    frame: Option<CallFrame>,
 }
 
 impl VM {
     pub fn new() -> Self {
-        VM { ip: 0, stack_top: 0, stack: vec![], globals: HashMap::new() }
+        VM {
+            ip: 0,
+            stack_top: 0,
+            stack: vec![],
+            frames: Vec::with_capacity(64),
+            globals: HashMap::new(),
+            frame: None,
+        }
     }
 
-    pub fn interpret(&mut self, chunk: &Chunk) {
-        self.run(chunk)
+    pub fn interpret(&mut self, source: &str) {
+        let exprs = EvalParser::parse(source);
+        let function = Compiler::compile(exprs);
+        println!("{}", function.chunk());
+
+        self.push(Value::Obj(Object::Function(function.clone())));
+        self.frames.push(
+            CallFrame::new(
+                function.clone(),
+                function.chunk().code().len(),
+                self.stack.clone(),
+            )
+        );
+
+        self.run()
     }
 
-    fn run(&mut self, chunk: &Chunk) {
-        while !self.is_at_end(chunk) {
-            let instruction = Opcode::from(self.read_byte(chunk));
+    fn run(&mut self) {
+        while !self.is_at_end() {
+            let instruction = Opcode::from(self.read_byte());
             match instruction {
                 Opcode::Return => self.ret(),
-                Opcode::Constant => self.constant(&chunk),
+                Opcode::Constant => self.constant(),
                 Opcode::Add => self.add(),
                 Opcode::Subtract => self.subtract(),
                 Opcode::Multiply => self.multiply(),
@@ -36,14 +62,15 @@ impl VM {
                 Opcode::Less => self.less(),
                 Opcode::Not => self.not(),
                 Opcode::Negate => self.negate(),
-                Opcode::DefineGlobal => self.define_global(chunk),
-                Opcode::GetGlobal => self.get_global(chunk),
-                Opcode::SetGlobal => self.set_global(chunk),
-                Opcode::JumpIfFalse => self.jump_if_false(chunk),
-                Opcode::Jump => self.jump(chunk),
-                Opcode::Pop => { self.pop(); },
-                Opcode::GetLocal => self.get_local(chunk),
-                Opcode::SetLocal => self.set_local(chunk),
+                Opcode::DefineGlobal => self.define_global(),
+                Opcode::GetGlobal => self.get_global(),
+                Opcode::SetGlobal => self.set_global(),
+                Opcode::JumpIfFalse => self.jump_if_false(),
+                Opcode::Jump => self.jump(),
+                Opcode::Pop => { self.pop(); }
+                Opcode::GetLocal => self.get_local(),
+                Opcode::SetLocal => self.set_local(),
+                Opcode::Nil => self.nil(),
             }
         }
     }
@@ -53,8 +80,8 @@ impl VM {
         println!("{:?}", popped); // TODO
     }
 
-    fn constant(&mut self, chunk: &Chunk) {
-        let constant = self.read_constant(chunk);
+    fn constant(&mut self) {
+        let constant = self.read_constant();
         self.push(constant);
     }
 
@@ -110,21 +137,21 @@ impl VM {
         self.push(-a);
     }
 
-    fn define_global(&mut self, chunk: &Chunk) {
-        let name = value_to_string(self.read_constant(chunk));
+    fn define_global(&mut self) {
+        let name = value_to_string(self.read_constant());
         let val = self.peek(0);
         self.globals.insert(name, val);
         self.pop();
     }
 
-    fn get_global(&mut self, chunk: &Chunk) {
-        let name = value_to_string(self.read_constant(chunk));
+    fn get_global(&mut self) {
+        let name = value_to_string(self.read_constant());
         let value = self.globals.get(&name).cloned();
         self.push(value.unwrap()); // TODO Unwrap???
     }
 
-    fn set_global(&mut self, chunk: &Chunk) {
-        let name = value_to_string(self.read_constant(chunk));
+    fn set_global(&mut self) {
+        let name = value_to_string(self.read_constant());
         let peek = self.peek(0);
         if let Some(global) = self.globals.get_mut(&name) {
             *global = peek;
@@ -133,17 +160,17 @@ impl VM {
         }
     }
 
-    fn jump_if_false(&mut self, chunk: &Chunk) {
-        let offset = self.read_short(chunk);
+    fn jump_if_false(&mut self) {
+        let offset = self.read_short();
 
-        if bool::from(self.peek(0)) {
-            self.ip += offset as usize;
+        if !bool::from(self.peek(0)) { // TODO
+            self.frame_mut().ip += offset as usize;
         }
     }
 
-    fn jump(&mut self, chunk: &Chunk) {
-        let offset = self.read_short(chunk);
-        self.ip += offset as usize;
+    fn jump(&mut self) {
+        let offset = self.read_short();
+        self.frame_mut().ip += offset as usize;
     }
 
     fn print(&mut self) {
@@ -151,42 +178,57 @@ impl VM {
         println!("{:?}", popped); // TODO Implement display for Value enum
     }
 
-    fn get_local(&mut self, chunk: &Chunk) {
-        let slot = self.read_byte(chunk);
-        self.push(self.stack[slot as usize].clone()); // TODO Clone???
+    fn get_local(&mut self) {
+        let slot = self.read_byte();
+        let val = &self.frame().slots[slot as usize];
+        self.push(val.clone());
+        // self.push(self.stack[slot as usize].clone()); // TODO Clone???
     }
 
-    fn set_local(&mut self, chunk: &Chunk) {
-        let slot = self.read_byte(chunk);
+    fn set_local(&mut self) {
+        let slot = self.read_byte();
         let peek = self.peek(0);
-        if let Some(local) = self.stack.get_mut(slot as usize) {
+        if let Some(local) = self.frame_mut().slots.get_mut(slot as usize) {
             *local = peek;
         } else {
             panic!("No local with name: {}", "TODO"); // TODO Name of local
         }
+        // if let Some(local) = self.stack.get_mut(slot as usize) {
+        //     *local = peek;
+        // } else {
+        //     panic!("No local with name: {}", "TODO"); // TODO Name of local
+        // }
     }
 
-    fn read_constant(&mut self, chunk: &Chunk) -> Value {
-        let constant_index = self.read_byte(chunk);
-        chunk.constants()[constant_index as usize].clone()
+    fn nil(&mut self) {
+        self.push(Value::Nil);
     }
 
-    fn read_byte(&mut self, chunk: &Chunk) -> u8 {
-        let byte = chunk.code()[self.ip];
+    fn read_constant(&mut self) -> Value {
+        let constant_index = self.read_byte();
+        self.current_chunk_mut().constants()[constant_index as usize].clone()
+    }
+
+    fn read_byte(&mut self) -> u8 {
+        let index = self.ip;
+        let byte = self.current_chunk_mut().code()[index];
         self.ip = self.ip + 1;
         byte
     }
 
-    fn read_short(&mut self, chunk: &Chunk) -> u16 {
+    fn read_short(&mut self) -> u16 {
         self.ip += 2;
 
-        let lo = chunk.code()[self.ip - 2] as u16;
-        let hi = chunk.code()[self.ip - 1] as u16;
+        let lo_index = self.ip - 2;
+        let hi_index = self.ip - 1;
+
+        let lo = self.current_chunk_mut().code()[lo_index] as u16;
+        let hi = self.current_chunk_mut().code()[hi_index] as u16;
         (lo << 8) | hi
     }
 
-    fn is_at_end(&self, chunk: &Chunk) -> bool {
-        self.ip >= chunk.code().len()
+    fn is_at_end(&self) -> bool {
+        self.ip >= self.current_chunk().code().len()
     }
 
     fn push(&mut self, value: Value) {
@@ -201,5 +243,21 @@ impl VM {
     fn pop(&mut self) -> Value {
         self.stack_top -= 1;
         self.stack.pop().expect("Failed to pop value from stack")
+    }
+
+    fn frame(&self) -> &CallFrame {
+        self.frames.last().expect("frames to be nonempty")
+    }
+
+    fn frame_mut(&mut self) -> &mut CallFrame {
+        self.frames.last_mut().expect("frames to be nonempty")
+    }
+
+    fn current_chunk(&self) -> &Chunk {
+        &self.frame().function.chunk()
+    }
+
+    fn current_chunk_mut(&mut self) -> &mut Chunk {
+        self.frame_mut().function.chunk_mut()
     }
 }

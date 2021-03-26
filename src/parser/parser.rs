@@ -1,6 +1,6 @@
 use crate::scanner::lexer::Lexer;
 use crate::scanner::token::{Token, TokenType, Keyword, Position};
-use crate::parser::rule::{GrammarRules, Precedence};
+use crate::parser::rule::{Precedence, get_prefix_rule, get_precedence, get_infix_rule};
 use crate::parser::ast::expr::{Expr, ExprKind, BlockExpr, LiteralExpr, Variable, VarSetExpr, VarGetExpr, VarAssignExpr, IfExpr, IfElseExpr};
 use crate::parser::ast::expr::ExprKind::{Literal, Block};
 use crate::scanner::token::TokenType::Line;
@@ -9,32 +9,32 @@ use std::borrow::Borrow;
 use crate::scanner::morpher::morph;
 
 pub struct EvalParser<'a> {
-    tokens: Vec<Token<'a>>,
-    grammar: GrammarRules,
+    tokens: Vec<Token<'a>>
 }
 
 impl<'a> EvalParser<'a> {
-    pub fn parse(source: &str) -> Vec<Expr> {
+    fn new(source: &'a str) -> Self {
         let mut tokens = Lexer::parse(source).unwrap();
         tokens = morph(tokens);
         tokens.reverse();
 
-        let mut eval_parser = EvalParser {
-            tokens,
-            grammar: GrammarRules {},
-        };
+        EvalParser { tokens }
+    }
+
+    pub fn parse(source: &str) -> Vec<Expr> {
+        let mut parser = EvalParser::new(source);
 
         let mut exprs = vec![];
-        while !eval_parser.match_(TokenType::EOF) {
+        while !parser.match_(TokenType::EOF) {
             // Consume lines till a non line token is found
-            while eval_parser.peek_type() == TokenType::Line {
-                eval_parser.consume();
+            while parser.match_(TokenType::Line) {
+                parser.consume();
             }
 
-            exprs.push(eval_parser.parse_top_level_expression());
+            exprs.push(parser.parse_top_level_expression());
 
-            if !eval_parser.match_(TokenType::EOF) {
-                eval_parser.expect(TokenType::Line);
+            if !parser.match_(TokenType::EOF) {
+                parser.expect(TokenType::Line);
             }
         }
 
@@ -60,7 +60,7 @@ impl<'a> EvalParser<'a> {
         // Prefix
         let token = self.consume();
 
-        if let Some(prefix) = self.grammar.get_prefix_rule(&token) {
+        if let Some(prefix) = get_prefix_rule(&token) {
             let mut left = prefix.parse(self, token);
 
             // Infix
@@ -77,9 +77,9 @@ impl<'a> EvalParser<'a> {
     fn parse_infix(&mut self, left: Expr, precedence: u8) -> Expr {
         let mut infix2 = left;
 
-        while precedence < self.grammar.get_precedence(self.peek()) as u8 {
+        while precedence < get_precedence(self.peek()) as u8 {
             let token = self.consume();
-            if let Some(infix) = self.grammar.get_infix_rule(&token) {
+            if let Some(infix) = get_infix_rule(&token) {
                 infix2 = infix.parse(self, infix2, token);
             }
         }
@@ -142,8 +142,7 @@ impl<'a> EvalParser<'a> {
 
         let mut then = vec![];
         while !self.match_(TokenType::Keyword(Keyword::End)) &&
-            !self.match_(TokenType::Keyword(Keyword::Else))
-        {
+            !self.match_(TokenType::Keyword(Keyword::Else)) {
             then.push(self.parse_top_level_expression());
             self.expect(TokenType::Line);
         }

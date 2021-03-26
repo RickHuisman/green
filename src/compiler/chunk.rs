@@ -3,6 +3,7 @@ use std::fmt::{Display, Formatter};
 use std::fmt;
 use crate::compiler::opcode::Opcode;
 
+#[derive(Debug, Clone)]
 pub struct Chunk {
     code: Vec<u8>,
     constants: Vec<Value>,
@@ -93,6 +94,7 @@ fn disassemble_instruction(f: &mut Formatter<'_>, chunk: &Chunk, offset: &mut us
         Opcode::Pop => simple_instruction(f, "OP_POP", offset),
         Opcode::GetLocal => byte_instruction(chunk, f, "OP_GET_LOCAL", offset),
         Opcode::SetLocal => byte_instruction(chunk, f, "OP_SET_LOCAL", offset),
+        Opcode::Nil => simple_instruction(f, "OP_NIL", offset),
     }
 }
 

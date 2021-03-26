@@ -19,12 +19,12 @@ fn main() {
 }
 
 fn run(source: &str) {
-    let exprs = EvalParser::parse(source);
-
-    let chunk = Compiler::compile(exprs);
-    println!("{}", chunk);
+    // let exprs = EvalParser::parse(source);
+    //
+    // let mut function = Compiler::compile(exprs);
+    // println!("{}", function.chunk_mut());
     let mut vm = VM::new();
-    vm.interpret(&chunk);
+    vm.interpret(source);
 }
 
 fn get_file_contents(path: &str) -> std::io::Result<String> {

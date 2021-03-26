@@ -2,34 +2,52 @@ use crate::parser::ast::expr::{Expr, ExprKind, LiteralExpr, BinaryExpr, BinaryOp
 use crate::compiler::opcode::Opcode;
 use crate::compiler::value::Value;
 use crate::compiler::chunk::Chunk;
-use crate::compiler::object::Object;
+use crate::compiler::object::{Object, EvalFunction, EvalFunctionType};
 use std::process::exit;
 use crate::compiler::local::Local;
 
+#[derive(Debug, Clone)]
+struct CompilerInstance {
+    function: EvalFunction,
+    function_type: EvalFunctionType,
+    pub locals: Vec<Local>,
+    pub scope_depth: i32,
+    pub enclosing: Box<Option<CompilerInstance>>,
+}
+
+impl CompilerInstance {
+    pub fn new(function_type: EvalFunctionType) -> Self {
+        CompilerInstance {
+            function: EvalFunction::new("test".to_string()),
+            function_type,
+            locals: Vec::with_capacity(u8::max_value() as usize),
+            scope_depth: 0,
+            enclosing: Box::new(None),
+        }
+    }
+
+    fn chunk_mut(&mut self) -> &mut Chunk {
+        self.function.chunk_mut()
+    }
+}
+
 pub struct Compiler {
-    chunk: Chunk,
-    locals: Vec<Local>,
-    scope_depth: i32,
+    current: CompilerInstance,
 }
 
 impl Compiler {
     fn new() -> Self {
-        let locals = Vec::with_capacity(u8::MAX as usize);
-        Compiler {
-            chunk: Chunk::new(),
-            locals,
-            scope_depth: 0,
-        }
+        Compiler { current: CompilerInstance::new(EvalFunctionType::Script) }
     }
 
-    pub fn compile(exprs: Vec<Expr>) -> Chunk { // TODO Accept &str not exprs
+    pub fn compile(exprs: Vec<Expr>) -> EvalFunction { // TODO Accept &str not exprs
         let mut compiler = Compiler::new();
 
         for expr in exprs {
             compiler.compile_expr(expr);
         }
 
-        compiler.chunk
+        compiler.end_compiler().clone() // TODO Clone
     }
 
     fn compile_expr(&mut self, expr: Expr) {
@@ -105,7 +123,7 @@ impl Compiler {
         // TODO Check if initialized -> if not init with nil
         self.compile_expr(var.initializer);
 
-        if self.scope_depth > 0 {
+        if self.current.scope_depth > 0 {
             // Local
             self.compile_declare_var(var.variable);
         } else {
@@ -116,12 +134,12 @@ impl Compiler {
 
     // var x = 10
     fn compile_declare_var(&mut self, var: Variable) {
-        if self.scope_depth == 0 {
+        if self.current.scope_depth == 0 {
             return;
         }
 
-        for local in &self.locals {
-            if *local.depth() != -1_i32 && local.depth() < &self.scope_depth {
+        for local in &self.current.locals {
+            if *local.depth() != -1_i32 && local.depth() < &self.current.scope_depth {
                 break;
             }
 
@@ -135,13 +153,13 @@ impl Compiler {
     }
 
     fn compile_define_var(&mut self, var: Variable) {
-        if self.scope_depth > 0 {
+        if self.current.scope_depth > 0 {
             self.mark_initialized();
             return;
         }
 
         self.emit(Opcode::DefineGlobal);
-        let constant_id = self.chunk.add_constant(Value::Obj(var.name.into()));
+        let constant_id = self.current_chunk().add_constant(Value::Obj(var.name.into()));
         self.emit_byte(constant_id);
     }
 
@@ -158,16 +176,9 @@ impl Compiler {
             // Global
             self.emit(Opcode::SetGlobal);
             let test = Value::Obj(var.variable.name.into());
-            let constant_id = self.chunk.add_constant(test);
+            let constant_id = self.current_chunk().add_constant(test);
             self.emit_byte(constant_id);
-            // let strVal2 = Value.Obj(ObjString.CopyString(set.Var.Name));
-            // var constant2 = CurrentChunk().AddConstant(strVal2);
-            // CurrentChunk().WriteChunk((byte)constant2);
         }
-
-        // self.emit(Opcode::SetGlobal);
-        // let constant_id = self.chunk.add_constant(Value::Obj(var.variable.name.into()));
-        // self.emit_byte(constant_id);
     }
 
     // print(x)
@@ -181,12 +192,9 @@ impl Compiler {
             // Global
             self.emit(Opcode::GetGlobal);
             let test = Value::Obj(var.variable.name.into());
-            let constant_id = self.chunk.add_constant(test);
+            let constant_id = self.current_chunk().add_constant(test);
             self.emit_byte(constant_id);
         }
-        // self.emit(Opcode::GetGlobal);
-        // let constant_id = self.chunk.add_constant(Value::Obj(var.variable.name.into()));
-        // self.emit_byte(constant_id);
     }
 
     fn compile_if(&mut self, if_expr: IfExpr) {
@@ -235,29 +243,29 @@ impl Compiler {
         self.emit(instruction);
         self.emit_byte(0xff);
         self.emit_byte(0xff);
-        return self.chunk.code().len() - 2;
+        return self.current_chunk().code().len() - 2;
     }
 
     fn patch_jump(&mut self, offset: usize) {
         // -2 to adjust for the bytecode for the jump offset itself.
-        let jump = self.chunk.code().len() - offset - 2;
+        let jump = self.current_chunk().code().len() - offset - 2;
 
-        self.chunk.code_mut()[offset] = ((jump >> 8) & 0xff) as u8;
-        self.chunk.code_mut()[offset + 1] = (jump & 0xff) as u8;
+        self.current_chunk().code_mut()[offset] = ((jump >> 8) & 0xff) as u8;
+        self.current_chunk().code_mut()[offset + 1] = (jump & 0xff) as u8;
     }
 
     fn compile_literal(&mut self, literal: LiteralExpr) {
         match literal {
             LiteralExpr::Number(n) => self.emit_constant(Value::Number(n)),
             LiteralExpr::String(s) => self.emit_string(&s),
-            LiteralExpr::True => todo!(),
-            LiteralExpr::False => todo!(),
+            LiteralExpr::True => self.emit_constant(Value::True),
+            LiteralExpr::False => self.emit_constant(Value::False),
             _ => todo!() // TODO NilLiteral
         }
     }
 
     fn resolve_local(&self, name: &String) -> i32 {
-        for (i, local) in self.locals.iter().enumerate() {
+        for (i, local) in self.current.locals.iter().enumerate() {
             if *name == *local.name() {
                 if *local.depth() == -1 {
                     panic!("Can't read local variable {} in it's own initializer.", name);
@@ -271,30 +279,50 @@ impl Compiler {
     }
 
     fn add_local(&mut self, name: String) {
-        self.locals.push(Local::new(name, -1_i32));
+        self.current.locals.push(Local::new(name, -1_i32));
     }
 
     fn mark_initialized(&mut self) {
-        if self.scope_depth == 0 {
+        if self.current.scope_depth == 0 {
             return;
         }
 
-        let index = &self.locals.len() - 1;
-        *self.locals[index].depth_mut() = self.scope_depth;
+        let index = &self.current.locals.len() - 1;
+        *self.current.locals[index].depth_mut() = self.current.scope_depth;
     }
 
     fn begin_scope(&mut self) {
-        self.scope_depth += 1;
+        self.current.scope_depth += 1;
     }
 
     fn end_scope(&mut self) {
-        self.scope_depth -= 1;
+        self.current.scope_depth -= 1;
 
-        while self.locals.len() > 0 &&
-            self.locals[self.locals.len() -1].depth() > &self.scope_depth {
+        while self.current.locals.len() > 0 &&
+            self.current.locals[self.current.locals.len() - 1].depth() > &self.current.scope_depth {
             self.emit(Opcode::Pop);
-            self.locals.pop();
+            self.current.locals.pop();
         }
+    }
+
+    fn end_compiler(mut self) -> EvalFunction {
+        self.emit_return();
+        let fun = self.current.function;
+
+        if let Some(enclosing) = *self.current.enclosing {
+            self.current = enclosing.clone();
+        }
+
+        fun
+    }
+
+    fn current_chunk(&mut self) -> &mut Chunk {
+        self.current.function.chunk_mut()
+    }
+
+    fn emit_return(&mut self) {
+        self.emit(Opcode::Nil);
+        self.emit(Opcode::Return);
     }
 
     fn emit_string(&mut self, s: &str) {
@@ -302,16 +330,16 @@ impl Compiler {
     }
 
     fn emit_constant(&mut self, value: Value) {
-        let constant = self.chunk.add_constant(value);
+        let constant = self.current_chunk().add_constant(value);
         self.emit(Opcode::Constant);
         self.emit_byte(constant);
     }
 
     fn emit(&mut self, opcode: Opcode) {
-        self.chunk.write(opcode, 123); // TODO Line
+        self.current_chunk().write(opcode, 123); // TODO Line
     }
 
     fn emit_byte(&mut self, byte: u8) {
-        self.chunk.write_byte(byte);
+        self.current_chunk().write_byte(byte);
     }
 }

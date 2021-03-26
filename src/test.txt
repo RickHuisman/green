@@ -1,11 +1,3 @@
-var z = 2
-do
-    var x = 10
-    x = 20 * 2
-    print(x)
-    do
-        var y = 10
-        print(y + x + z)
-    end
+if 10 > 5 then
+    print(10)
 end
-print(z)

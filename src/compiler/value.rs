@@ -141,6 +141,7 @@ pub fn value_to_string(val: Value) -> String {
         Value::Obj(s) => {
             match s {
                 Object::String(s) => s,
+                _ => panic!("TODO"),
             }
         }
         _ => panic!("TODO")

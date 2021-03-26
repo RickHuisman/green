@@ -20,6 +20,7 @@ pub enum Opcode {
     Pop,
     GetLocal,
     SetLocal,
+    Nil,
 }
 
 impl From<u8> for Opcode {
@@ -45,6 +46,7 @@ impl From<u8> for Opcode {
             0x11 => Opcode::Pop,
             0x12 => Opcode::GetLocal,
             0x13 => Opcode::SetLocal,
+            0x14 => Opcode::Nil,
             _ => panic!("No opcode for byte: {}", byte),
         }
     }

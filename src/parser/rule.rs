@@ -1,4 +1,4 @@
-use crate::scanner::token::{TokenType, Token};
+use crate::scanner::token::{TokenType, Token, Keyword};
 use crate::parser::parser::EvalParser;
 use std::collections::HashMap;
 use crate::parser::ast::expr::{Expr, LiteralExpr, ExprKind, BinaryExpr, BinaryOperator, GroupingExpr};
@@ -12,73 +12,67 @@ pub trait InfixParser {
     fn get_precedence(&self) -> Precedence;
 }
 
-pub struct GrammarRules {}
+pub fn get_prefix_rule(token: &Token) -> Option<Box<dyn PrefixParser>> {
+    // TODO Fix this mess.
+    let mut map = HashMap::new();
+    map.insert(TokenType::Number, LiteralParser {});
+    map.insert(TokenType::String, LiteralParser {});
+    map.insert(TokenType::Keyword(Keyword::True), LiteralParser {});
+    map.insert(TokenType::Keyword(Keyword::False), LiteralParser {});
 
-impl GrammarRules {
-    pub fn new() -> Self {
-        GrammarRules {}
-    }
+    let mut map2 = HashMap::new();
+    map2.insert(TokenType::LeftParen, GroupingParser {});
 
-    pub fn get_prefix_rule(&self, token: &Token) -> Option<Box<dyn PrefixParser>> {
-        // TODO Fix this mess.
-        let mut map = HashMap::new();
-        map.insert(TokenType::Number, LiteralParser {});
-        map.insert(TokenType::String, LiteralParser {});
+    let mut map3 = HashMap::new();
+    map3.insert(TokenType::Identifier, IdentifierParser {});
 
-        let mut map2 = HashMap::new();
-        map2.insert(TokenType::LeftParen, GroupingParser {});
-
-        let mut map3 = HashMap::new();
-        map3.insert(TokenType::Identifier, IdentifierParser {});
-
-        if let Some(token_type) = map.get(&token.token_type) {
-            Some(Box::new(map[&token.token_type]))
+    if let Some(token_type) = map.get(&token.token_type) {
+        Some(Box::new(map[&token.token_type]))
+    } else {
+        if let Some(token_type) = map2.get(&token.token_type) {
+            Some(Box::new(map2[&token.token_type]))
         } else {
-            if let Some(token_type) = map2.get(&token.token_type) {
-                Some(Box::new(map2[&token.token_type]))
+            if let Some(token_type) = map3.get(&token.token_type) {
+                Some(Box::new(map3[&token.token_type]))
             } else {
-                if let Some(token_type) = map3.get(&token.token_type) {
-                    Some(Box::new(map3[&token.token_type]))
-                } else {
-                    println!("No rule for token: {:?}", token);
-                    None
-                }
+                println!("No rule for token: {:?}", token);
+                None
             }
         }
     }
+}
 
-    pub fn get_infix_rule(&self, token: &Token) -> Option<Box<dyn InfixParser>> {
-        let mut map = HashMap::new();
-        map.insert(TokenType::Plus, InfixOperatorParser::new(Precedence::Term));
-        map.insert(TokenType::Minus, InfixOperatorParser::new(Precedence::Term));
+pub fn get_infix_rule(token: &Token) -> Option<Box<dyn InfixParser>> {
+    let mut map = HashMap::new();
+    map.insert(TokenType::Plus, InfixOperatorParser::new(Precedence::Term));
+    map.insert(TokenType::Minus, InfixOperatorParser::new(Precedence::Term));
 
-        map.insert(TokenType::Star, InfixOperatorParser::new(Precedence::Factor));
-        map.insert(TokenType::Slash, InfixOperatorParser::new(Precedence::Factor));
+    map.insert(TokenType::Star, InfixOperatorParser::new(Precedence::Factor));
+    map.insert(TokenType::Slash, InfixOperatorParser::new(Precedence::Factor));
 
-        map.insert(TokenType::EqualEqual, InfixOperatorParser::new(Precedence::Equality));
-        map.insert(TokenType::BangEqual, InfixOperatorParser::new(Precedence::Equality));
-        map.insert(TokenType::GreaterThan, InfixOperatorParser::new(Precedence::Comparison));
-        map.insert(TokenType::GreaterThanEqual, InfixOperatorParser::new(Precedence::Comparison));
-        map.insert(TokenType::LessThan, InfixOperatorParser::new(Precedence::Comparison));
-        map.insert(TokenType::LessThanEqual, InfixOperatorParser::new(Precedence::Comparison));
+    map.insert(TokenType::EqualEqual, InfixOperatorParser::new(Precedence::Equality));
+    map.insert(TokenType::BangEqual, InfixOperatorParser::new(Precedence::Equality));
+    map.insert(TokenType::GreaterThan, InfixOperatorParser::new(Precedence::Comparison));
+    map.insert(TokenType::GreaterThanEqual, InfixOperatorParser::new(Precedence::Comparison));
+    map.insert(TokenType::LessThan, InfixOperatorParser::new(Precedence::Comparison));
+    map.insert(TokenType::LessThanEqual, InfixOperatorParser::new(Precedence::Comparison));
 
-        if let Some(token_type) = map.get(&token.token_type) {
-            Some(Box::new(*token_type))
-        } else {
-            println!("No rule for token: {:?}", token);
-            None
-        }
+    if let Some(token_type) = map.get(&token.token_type) {
+        Some(Box::new(*token_type))
+    } else {
+        println!("No rule for token: {:?}", token);
+        None
+    }
+}
+
+pub fn get_precedence(token: &Token) -> Precedence {
+    let mut precedence = Precedence::None;
+
+    if let Some(parser) = get_infix_rule(token) {
+        precedence = parser.get_precedence();
     }
 
-    pub fn get_precedence(&self, token: &Token) -> Precedence {
-        let mut precedence = Precedence::None;
-
-        if let Some(parser) = self.get_infix_rule(token) {
-            precedence = parser.get_precedence();
-        }
-
-        precedence
-    }
+    precedence
 }
 
 #[derive(Copy, Clone)]
@@ -108,7 +102,9 @@ impl PrefixParser for LiteralParser {
                 LiteralExpr::Number(token.source.parse::<f64>().unwrap())
             }
             TokenType::String => LiteralExpr::String(token.source.to_string()), // TODO
-            _ => panic!("TODO") // TODO
+            TokenType::Keyword(Keyword::True) => LiteralExpr::True,
+            TokenType::Keyword(Keyword::False) => LiteralExpr::False,
+            _ => panic!("No rule for token: {:?}", token),
         };
         Expr::new(ExprKind::Literal(op))
     }
