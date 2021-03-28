@@ -34,6 +34,7 @@ pub enum ExprKind {
     IfElse(IfElseExpr),
     Function(FunctionExpr),
     Call(CallExpr),
+    Return(ReturnExpr),
 }
 
 impl ExprKind {
@@ -213,13 +214,13 @@ impl IfElseExpr {
 
 #[derive(PartialEq, Debug)]
 pub struct FunctionDeclaration {
-    // TODO Parameters
+    pub parameters: Vec<Variable>,
     pub body: BlockExpr,
 }
 
 impl FunctionDeclaration {
-    pub fn new(body: BlockExpr) -> Self {
-        FunctionDeclaration { body }
+    pub fn new(parameters: Vec<Variable>, body: BlockExpr) -> Self {
+        FunctionDeclaration { parameters, body }
     }
 }
 
@@ -238,11 +239,22 @@ impl FunctionExpr {
 #[derive(PartialEq, Debug)]
 pub struct CallExpr {
     pub callee: Expr,
-    // TODO Args
+    pub args: Vec<Expr>,
 }
 
 impl CallExpr {
-    pub fn new(callee: Expr) -> Self {
-        CallExpr { callee }
+    pub fn new(callee: Expr, args: Vec<Expr>) -> Self {
+        CallExpr { callee, args }
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct ReturnExpr {
+    pub expr: Option<Expr>,
+}
+
+impl ReturnExpr {
+    pub fn new(expr: Option<Expr>) -> Self {
+        ReturnExpr { expr }
     }
 }

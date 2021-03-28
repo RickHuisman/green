@@ -6,9 +6,9 @@ use crate::compiler::object::{Object, EvalFunction};
 use crate::vm::callframe::CallFrame;
 use crate::compiler::compiler::Compiler;
 use crate::parser::parser::EvalParser;
+use std::process::id;
 
 pub struct VM {
-    stack_top: usize,
     stack: Vec<Value>,
     frames: Vec<CallFrame>,
     globals: HashMap<String, Value>,
@@ -17,7 +17,6 @@ pub struct VM {
 impl VM {
     pub fn new() -> Self {
         VM {
-            stack_top: 0,
             stack: vec![],
             frames: Vec::with_capacity(64),
             globals: HashMap::new(),
@@ -61,8 +60,10 @@ impl VM {
                 Opcode::Nil => self.nil(),
                 Opcode::Call => {
                     let arity = self.read_byte() as usize;
-                    let peek = self.peek(arity);
-                    if !self.call_value(peek, arity) {
+                    let frame_start = self.stack.len() - (arity + 1) as usize;
+                    let callee = self.stack[frame_start].clone();
+
+                    if !self.call_value(callee, arity) {
                         panic!("TODO");
                     }
                 },
@@ -116,15 +117,35 @@ impl VM {
     }
 
     fn greater(&mut self) {
-        let b = self.pop();
-        let a = self.pop();
-        self.push((a > b).into());
+        if let Value::Number(b) = self.pop() {
+            if let Value::Number(a) = self.pop() {
+                self.push((a > b).into());
+            } else {
+                panic!("Operand must be a number.");
+            }
+        } else {
+            panic!("Operand must be a number.");
+        }
+
+        // let b = self.pop();
+        // let a = self.pop();
+        // self.push((a > b).into());
     }
 
     fn less(&mut self) {
-        let b = self.pop();
-        let a = self.pop();
-        self.push((a < b).into());
+        if let Value::Number(b) = self.pop() {
+            if let Value::Number(a) = self.pop() {
+                self.push((a < b).into());
+            } else {
+                panic!("Operand must be a number.");
+            }
+        } else {
+            panic!("Operand must be a number.");
+        }
+
+        // let b = self.pop();
+        // let a = self.pop();
+        // self.push((a < b).into());
     }
 
     fn not(&mut self) {
@@ -139,7 +160,7 @@ impl VM {
 
     fn define_global(&mut self) {
         let name = value_to_string(self.read_constant());
-        let val = self.peek(0);
+        let val = self.peek();
         self.globals.insert(name, val);
         self.pop();
     }
@@ -152,7 +173,7 @@ impl VM {
 
     fn set_global(&mut self) {
         let name = value_to_string(self.read_constant());
-        let peek = self.peek(0);
+        let peek = self.peek();
         if let Some(global) = self.globals.get_mut(&name) {
             *global = peek;
         } else {
@@ -163,7 +184,7 @@ impl VM {
     fn jump_if_false(&mut self) {
         let offset = self.read_short();
 
-        if !bool::from(self.peek(0)) { // TODO
+        if !bool::from(self.peek()) { // TODO
             self.frame_mut().ip += offset as usize;
         }
     }
@@ -183,13 +204,12 @@ impl VM {
         let idx = self.read_byte() as usize;
         let val = self.stack[start + idx].clone(); // Clone???
         self.push(val);
-
     }
 
     fn set_local(&mut self) {
         // We peek because we would just push it back after
         // the assignment occurs.
-        let val = self.peek(0);
+        let val = self.peek();
         let start = self.frame().stack_start;
         let idx = self.read_byte() as usize;
         self.stack[start + idx] = val;
@@ -226,14 +246,12 @@ impl VM {
         true
     }
 
-    fn call_value(&mut self, callee: Value, arg_count: usize) -> bool {
+    fn call_value(&mut self, callee: Value, arity: usize) -> bool {
         // Check if callee is obj
         match callee {
             Value::Obj(obj) => {
                 match obj {
-                    Object::Function(fun) => {
-                        self.call(fun, 0) // TODO arity
-                    }
+                    Object::Function(fun) => self.call(fun, arity),
                     _ => panic!("Can only call functions"),
                 }
             }
@@ -269,16 +287,14 @@ impl VM {
     }
 
     fn push(&mut self, value: Value) {
-        self.stack_top += 1;
         self.stack.push(value);
     }
 
-    fn peek(&mut self, offset: usize) -> Value {
-        self.stack[self.stack_top - 1 - offset].clone()
+    fn peek(&mut self) -> Value {
+        self.stack.last().expect("stack to be nonempty").clone()
     }
 
     fn pop(&mut self) -> Value {
-        self.stack_top -= 1;
         self.stack.pop().expect("Failed to pop value from stack")
     }
 

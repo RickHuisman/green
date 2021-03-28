@@ -6,7 +6,7 @@ pub enum Object {
     Function(EvalFunction),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum EvalFunctionType {
     Function,
     Script,
@@ -17,7 +17,6 @@ pub struct EvalFunction {
     name: String,
     chunk: Chunk,
     arity: u8,
-    // TODO Type
 }
 
 impl EvalFunction {
@@ -35,6 +34,10 @@ impl EvalFunction {
 
     pub fn chunk_mut(&mut self) -> &mut Chunk {
         &mut self.chunk
+    }
+
+    pub fn arity_mut(&mut self) -> &mut u8 {
+        &mut self.arity
     }
 }
 

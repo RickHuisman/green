@@ -1,6 +1,8 @@
 use std::ops::{Add, Sub, Mul, Div, Neg};
 use std::cmp::Ordering;
 use crate::compiler::object::Object;
+use std::fmt::{Display, Formatter};
+use std::fmt;
 
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -36,7 +38,7 @@ impl Add for Value {
     fn add(self, other: Self) -> Self::Output {
         if let Value::Number(b) = self {
             if let Value::Number(a) = other {
-                Value::Number(a + b)
+                Value::Number(b + a)
             } else {
                 panic!("Operand must be a number.");
             }
@@ -52,7 +54,7 @@ impl Sub for Value {
     fn sub(self, other: Self) -> Self::Output {
         if let Value::Number(b) = self {
             if let Value::Number(a) = other {
-                Value::Number(a - b)
+                Value::Number(b - a)
             } else {
                 panic!("Operand must be a number.");
             }
@@ -145,5 +147,17 @@ pub fn value_to_string(val: Value) -> String {
             }
         }
         _ => panic!("TODO")
+    }
+}
+
+impl Display for Value {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Value::Number(n) => write!(f, "{}", n),
+            Value::True => write!(f, "'true'"),
+            Value::False => write!(f, "'false'"),
+            Value::Nil => write!(f, "'nil'"),
+            Value::Obj(obj) => write!(f, "Obj {:?}", obj)
+        }
     }
 }

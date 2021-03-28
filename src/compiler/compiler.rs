@@ -1,4 +1,4 @@
-use crate::parser::ast::expr::{Expr, ExprKind, LiteralExpr, BinaryExpr, BinaryOperator, UnaryExpr, UnaryOperator, BlockExpr, GroupingExpr, VarSetExpr, VarGetExpr, VarAssignExpr, IfExpr, IfElseExpr, Variable, FunctionExpr, CallExpr};
+use crate::parser::ast::expr::{Expr, ExprKind, LiteralExpr, BinaryExpr, BinaryOperator, UnaryExpr, UnaryOperator, BlockExpr, GroupingExpr, VarSetExpr, VarGetExpr, VarAssignExpr, IfExpr, IfElseExpr, Variable, FunctionExpr, CallExpr, ReturnExpr};
 use crate::compiler::opcode::Opcode;
 use crate::compiler::value::Value;
 use crate::compiler::chunk::Chunk;
@@ -16,13 +16,16 @@ struct CompilerInstance {
 
 impl CompilerInstance {
     pub fn new(function_type: EvalFunctionType) -> Self {
-        CompilerInstance {
+        let mut compiler = CompilerInstance {
             function: EvalFunction::new(),
             function_type,
             locals: Vec::with_capacity(u8::max_value() as usize),
             scope_depth: 0,
             enclosing: Box::new(None),
-        }
+        };
+        compiler.locals.push(Local::new("".to_string(), 0));
+
+        compiler
     }
 }
 
@@ -60,6 +63,7 @@ impl Compiler {
             ExprKind::IfElse(if_else_expr) => self.compile_if_else(if_else_expr),
             ExprKind::Function(function) => self.compile_function(function),
             ExprKind::Call(call) => self.compile_call(call),
+            ExprKind::Return(ret_expr) => self.compile_return(ret_expr),
         }
     }
 
@@ -247,7 +251,11 @@ impl Compiler {
 
         self.begin_scope();
 
-        // TODO Compile parameters.
+        // Compile parameters.
+        for p in fun_expr.declaration.parameters {
+            *self.current.function.arity_mut() += 1;
+            self.compile_declare_var(p);
+        }
 
         // Compile body.
         self.compile_block(fun_expr.declaration.body);
@@ -260,11 +268,33 @@ impl Compiler {
     }
 
     fn compile_call(&mut self, call: CallExpr) {
-        // let arity =
+        let arity = call.args.len();
+        if arity > 8 {
+            panic!() // TODO
+        }
+
         self.compile_expr(call.callee);
 
+        for arg in call.args {
+            self.compile_expr(arg);
+        }
+
         self.emit(Opcode::Call);
-        self.emit_byte(0) // TODO emit arity
+        self.emit_byte(arity as u8);
+    }
+
+    fn compile_return(&mut self, return_expr: ReturnExpr) {
+        if self.current.function_type == EvalFunctionType::Script {
+            panic!("Can't return from top level code.");
+        }
+
+        if let Some(expr) = return_expr.expr {
+            self.compile_expr(expr);
+            self.emit(Opcode::Return);
+        } else {
+            self.emit(Opcode::Nil);
+            self.emit(Opcode::Return);
+        }
     }
 
     fn emit_jump(&mut self, instruction: Opcode) -> usize {

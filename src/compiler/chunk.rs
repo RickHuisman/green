@@ -117,7 +117,7 @@ fn constant_instruction(
 ) -> usize {
     let constant = chunk.code()[*offset + 1];
     write!(f, "{:-16} {:4} ", name, constant);
-    writeln!(f, "'{:?}'", chunk.constants()[constant as usize]);
+    writeln!(f, "'{}'", chunk.constants()[constant as usize]);
     *offset + 2
 }
 
@@ -152,6 +152,6 @@ fn byte_instruction(
     offset: &mut usize,
 ) -> usize {
     let slot = chunk.code[*offset + 1];
-    writeln!(f, "{:-16}, {:4X}", name, slot);
+    writeln!(f, "{:-16} {:4X}", name, slot);
     *offset + 2
 }

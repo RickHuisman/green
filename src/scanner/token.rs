@@ -80,6 +80,7 @@ pub enum Keyword {
     Then,
     True,
     False,
+    Return,
 }
 
 impl FromStr for Keyword {
@@ -97,6 +98,7 @@ impl FromStr for Keyword {
             "then" => Ok(Keyword::Then),
             "true" => Ok(Keyword::True),
             "false" => Ok(Keyword::False),
+            "return" => Ok(Keyword::Return),
             _ => Err(()),
         }
     }

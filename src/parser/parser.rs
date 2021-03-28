@@ -1,7 +1,7 @@
 use crate::scanner::lexer::Lexer;
 use crate::scanner::token::{Token, TokenType, Keyword, Position};
 use crate::parser::rule::{Precedence, get_prefix_rule, get_precedence, get_infix_rule};
-use crate::parser::ast::expr::{Expr, ExprKind, BlockExpr, LiteralExpr, Variable, VarSetExpr, VarGetExpr, VarAssignExpr, IfExpr, IfElseExpr, FunctionDeclaration, FunctionExpr};
+use crate::parser::ast::expr::{Expr, ExprKind, BlockExpr, LiteralExpr, Variable, VarSetExpr, VarGetExpr, VarAssignExpr, IfExpr, IfElseExpr, FunctionDeclaration, FunctionExpr, ReturnExpr};
 use crate::parser::ast::expr::ExprKind::{Literal, Block};
 use crate::scanner::token::TokenType::Line;
 use crate::scanner::morpher::morph;
@@ -47,6 +47,7 @@ impl<'a> EvalParser<'a> {
             TokenType::Keyword(Keyword::Var) => self.declare_var(),
             TokenType::Keyword(Keyword::Do) => self.parse_do(),
             TokenType::Keyword(Keyword::If) => self.parse_if(),
+            TokenType::Keyword(Keyword::Return) => self.parse_return(),
             _ => self.parse_expression()
         }
     }
@@ -97,13 +98,30 @@ impl<'a> EvalParser<'a> {
         let identifier = self.expect(TokenType::Identifier);
 
         self.expect(TokenType::LeftParen);
+
+        let mut parameters = vec![];
+        while !self.match_(TokenType::RightParen) &&
+            !self.match_(TokenType::EOF) {
+            let param = self.expect(TokenType::Identifier);
+            parameters.push(Variable::new(param.source.to_string()));
+
+            if self.match_(TokenType::Comma) {
+                self.consume();
+            }
+            else {
+                break;
+            }
+        }
+
         self.expect(TokenType::RightParen);
 
         self.expect(TokenType::Line);
 
         let body = self.parse_block().node.block().unwrap(); // TODO Unwrap
 
-        let fun_decl = FunctionDeclaration::new(body);
+        let fun_decl = FunctionDeclaration::new(
+            parameters, body
+        );
         Expr::new(ExprKind::Function(
             FunctionExpr::new(
                 Variable::new(identifier.source.to_string()),
@@ -178,13 +196,6 @@ impl<'a> EvalParser<'a> {
 
             let else_clause = self.parse_block().node.block().unwrap(); // TODO Unwrap
 
-            // while !self.match_(TokenType::Keyword(Keyword::End)) &&
-            //     !self.match_(TokenType::Keyword(Keyword::Else))
-            // {
-            //     else_clause.push(self.parse_top_level_expression());
-            //     self.expect(TokenType::Line);
-            // }
-
             ExprKind::IfElse(IfElseExpr::new(cond, BlockExpr::new(then), else_clause))
         } else {
             self.expect(TokenType::Keyword(Keyword::End));
@@ -192,6 +203,20 @@ impl<'a> EvalParser<'a> {
         };
 
         Expr::new(expr_kind)
+    }
+
+    fn parse_return(&mut self) -> Expr {
+        self.expect(TokenType::Keyword(Keyword::Return));
+
+        let return_expr = if self.match_(TokenType::Line) {
+            ReturnExpr::new(None)
+        } else {
+            ReturnExpr::new(Some(
+                self.parse_top_level_expression()
+            ))
+        };
+
+        Expr::new(ExprKind::Return(return_expr))
     }
 
     fn parse_block(&mut self) -> Expr {
@@ -208,7 +233,7 @@ impl<'a> EvalParser<'a> {
         Expr::new(ExprKind::Block(BlockExpr::new(exprs)))
     }
 
-    fn match_(&mut self, token_type: TokenType) -> bool {
+    pub fn match_(&mut self, token_type: TokenType) -> bool {
         self.peek_type() == token_type
     }
 

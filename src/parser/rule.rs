@@ -177,10 +177,19 @@ impl CallParser {
 
 impl InfixParser for CallParser {
     fn parse<'a>(&self, parser: &mut EvalParser, left: Expr, token: Token<'a>) -> Expr {
-        // TODO Args
+        let mut args = vec![];
+        if !parser.match_(TokenType::RightParen) {
+
+            args.push(parser.parse_expression());
+            while parser.match_(TokenType::Comma) {
+                parser.consume();
+                args.push(parser.parse_expression());
+            }
+        }
         parser.expect(TokenType::RightParen);
+
         Expr::new(ExprKind::Call(
-            CallExpr::new(left)
+            CallExpr::new(left, args)
         ))
     }
 
