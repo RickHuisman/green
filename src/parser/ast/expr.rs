@@ -1,6 +1,5 @@
-use crate::scanner::token::{Token, TokenType};
+use crate::scanner::token::TokenType;
 use std::fmt::Display;
-use crate::parser::ast::expr::ExprKind::{Grouping, VarGet};
 
 #[derive(PartialEq, Debug)]
 pub struct Expr {

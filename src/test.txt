@@ -1,6 +1,1 @@
-do
-    var x = 10
-    x = 12
-
-    print(x)
-end
+print(!true)

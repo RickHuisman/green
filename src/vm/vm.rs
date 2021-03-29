@@ -6,7 +6,6 @@ use crate::compiler::object::{Object, EvalFunction};
 use crate::vm::callframe::CallFrame;
 use crate::compiler::compiler::Compiler;
 use crate::parser::parser::EvalParser;
-use std::process::id;
 
 pub struct VM {
     stack: Vec<Value>,
@@ -58,15 +57,7 @@ impl VM {
                 Opcode::GetLocal => self.get_local(),
                 Opcode::SetLocal => self.set_local(),
                 Opcode::Nil => self.nil(),
-                Opcode::Call => {
-                    let arity = self.read_byte() as usize;
-                    let frame_start = self.stack.len() - (arity + 1) as usize;
-                    let callee = self.stack[frame_start].clone();
-
-                    if !self.call_value(callee, arity) {
-                        panic!("TODO");
-                    }
-                },
+                Opcode::Call => self.call_instruction(),
             }
         }
     }
@@ -117,40 +108,20 @@ impl VM {
     }
 
     fn greater(&mut self) {
-        if let Value::Number(b) = self.pop() {
-            if let Value::Number(a) = self.pop() {
-                self.push((a > b).into());
-            } else {
-                panic!("Operand must be a number.");
-            }
-        } else {
-            panic!("Operand must be a number.");
-        }
-
-        // let b = self.pop();
-        // let a = self.pop();
-        // self.push((a > b).into());
+        let b = self.pop();
+        let a = self.pop();
+        self.push((a > b).into());
     }
 
     fn less(&mut self) {
-        if let Value::Number(b) = self.pop() {
-            if let Value::Number(a) = self.pop() {
-                self.push((a < b).into());
-            } else {
-                panic!("Operand must be a number.");
-            }
-        } else {
-            panic!("Operand must be a number.");
-        }
-
-        // let b = self.pop();
-        // let a = self.pop();
-        // self.push((a < b).into());
+        let b = self.pop();
+        let a = self.pop();
+        self.push((a < b).into());
     }
 
     fn not(&mut self) {
         let a = self.pop();
-        self.push(bool::into(bool::from(a)));
+        self.push(bool::into(!bool::from(a)));
     }
 
     fn negate(&mut self) {
@@ -213,25 +184,20 @@ impl VM {
         let start = self.frame().stack_start;
         let idx = self.read_byte() as usize;
         self.stack[start + idx] = val;
-
-        // let slot = self.read_byte();
-        // let peek = self.peek(0);
-        // if let Some(local) = self.frame_mut().slots.get_mut(slot as usize) {
-        //     *local = peek;
-        // } else {
-        //     panic!("No local with name: {}", "TODO"); // TODO Name of local
-        // }
-
-
-        // if let Some(local) = self.stack.get_mut(slot as usize) {
-        //     *local = peek;
-        // } else {
-        //     panic!("No local with name: {}", "TODO"); // TODO Name of local
-        // }
     }
 
     fn nil(&mut self) {
         self.push(Value::Nil);
+    }
+
+    fn call_instruction(&mut self) {
+        let arity = self.read_byte() as usize;
+        let frame_start = self.stack.len() - (arity + 1) as usize;
+        let callee = self.stack[frame_start].clone();
+
+        if !self.call_value(callee, arity) {
+            panic!("TODO");
+        }
     }
 
     fn call(&mut self, fun: EvalFunction, arity: usize) -> bool {

@@ -36,23 +36,23 @@ pub fn morph(mut tokens: Vec<Token>) -> Vec<Token> {
 mod tests {
     use super::*;
 
-    #[test]
-    fn morph_comments() {
-        let input = r#"
-        # This is a test!
-        print(10)
-
-        "#;
-        let tokens = Lexer::parse(input);
-        for token in &tokens {
-            println!("{:?}", token);
-        }
-
-        println!("Morph");
-
-        let tokens2 = morph(tokens);
-        for token in tokens2 {
-            println!("{:?}", token);
-        }
-    }
+    // #[test]
+    // fn morph_comments() {
+    //     let input = r#"
+    //     # This is a test!
+    //     print(10)
+    //
+    //     "#;
+    //     let tokens = Lexer::parse(input);
+    //     for token in &tokens {
+    //         println!("{:?}", token);
+    //     }
+    //
+    //     println!("Morph");
+    //
+    //     let tokens2 = morph(tokens);
+    //     for token in tokens2 {
+    //         println!("{:?}", token);
+    //     }
+    // }
 }

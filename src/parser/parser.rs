@@ -1,9 +1,7 @@
 use crate::scanner::lexer::Lexer;
-use crate::scanner::token::{Token, TokenType, Keyword, Position};
+use crate::scanner::token::{Token, TokenType, Keyword};
 use crate::parser::rule::{Precedence, get_prefix_rule, get_precedence, get_infix_rule};
 use crate::parser::ast::expr::{Expr, ExprKind, BlockExpr, LiteralExpr, Variable, VarSetExpr, VarGetExpr, VarAssignExpr, IfExpr, IfElseExpr, FunctionDeclaration, FunctionExpr, ReturnExpr};
-use crate::parser::ast::expr::ExprKind::{Literal, Block};
-use crate::scanner::token::TokenType::Line;
 use crate::scanner::morpher::morph;
 
 pub struct EvalParser<'a> {
@@ -60,8 +58,8 @@ impl<'a> EvalParser<'a> {
         // Prefix
         let token = self.consume();
 
-        if let Some(prefix) = get_prefix_rule(&token) {
-            let mut left = prefix.parse(self, token);
+        if let Some(prefix) = get_prefix_rule(&token.token_type) {
+            let left = prefix.parse(self, token);
 
             // Infix
             if !self.is_empty() {
@@ -77,9 +75,18 @@ impl<'a> EvalParser<'a> {
     fn parse_infix(&mut self, left: Expr, precedence: u8) -> Expr {
         let mut infix2 = left;
 
-        while precedence < get_precedence(self.peek()) as u8 {
+        loop {
+            if self.is_empty() {
+                break;
+            }
+
+            let current_precedence = get_precedence(self.peek());
+            if precedence >= current_precedence as u8 {
+                break
+            }
+
             let token = self.consume();
-            if let Some(infix) = get_infix_rule(&token) {
+            if let Some(infix) = get_infix_rule(&token.token_type) {
                 infix2 = infix.parse(self, infix2, token);
             }
         }

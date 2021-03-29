@@ -1,5 +1,4 @@
 use crate::compiler::object::EvalFunction;
-use crate::compiler::value::Value;
 
 #[derive(Clone)]
 pub struct CallFrame {

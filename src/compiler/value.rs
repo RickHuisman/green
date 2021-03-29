@@ -119,7 +119,6 @@ impl PartialEq for Value {
         } else {
             panic!("Operand must be a number.");
         }
-        // TODO Eq on object
     }
 }
 
@@ -127,7 +126,7 @@ impl PartialOrd for Value {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         if let Value::Number(b) = self {
             if let Value::Number(a) = other {
-                a.partial_cmp(b)
+                b.partial_cmp(a)
             } else {
                 panic!("Operand must be a number.");
             }

@@ -1,7 +1,7 @@
 use crate::scanner::token::{TokenType, Token, Keyword};
 use crate::parser::parser::EvalParser;
 use std::collections::HashMap;
-use crate::parser::ast::expr::{Expr, LiteralExpr, ExprKind, BinaryExpr, BinaryOperator, GroupingExpr, CallExpr};
+use crate::parser::ast::expr::{Expr, LiteralExpr, ExprKind, BinaryExpr, BinaryOperator, GroupingExpr, CallExpr, UnaryOperator, UnaryExpr};
 
 pub trait PrefixParser {
     fn parse<'a>(&self, parser: &mut EvalParser, token: Token<'a>) -> Expr;
@@ -12,7 +12,7 @@ pub trait InfixParser {
     fn get_precedence(&self) -> Precedence;
 }
 
-pub fn get_prefix_rule(token: &Token) -> Option<Box<dyn PrefixParser>> {
+pub fn get_prefix_rule(token_type: &TokenType) -> Option<Box<dyn PrefixParser>> {
     // TODO Fix this mess.
     let mut map = HashMap::new();
     map.insert(TokenType::Number, LiteralParser {});
@@ -26,23 +26,32 @@ pub fn get_prefix_rule(token: &Token) -> Option<Box<dyn PrefixParser>> {
     let mut map3 = HashMap::new();
     map3.insert(TokenType::Identifier, IdentifierParser {});
 
-    if let Some(token_type) = map.get(&token.token_type) {
-        Some(Box::new(map[&token.token_type]))
+    let mut map4 = HashMap::new();
+    map4.insert(TokenType::Bang, UnaryParser {});
+    map4.insert(TokenType::Minus, UnaryParser {});
+
+    if let Some(token_type) = map.get(token_type) {
+        Some(Box::new(*token_type))
     } else {
-        if let Some(token_type) = map2.get(&token.token_type) {
-            Some(Box::new(map2[&token.token_type]))
+        if let Some(token_type) = map2.get(token_type) {
+            Some(Box::new(*token_type))
         } else {
-            if let Some(token_type) = map3.get(&token.token_type) {
-                Some(Box::new(map3[&token.token_type]))
+            if let Some(token_type) = map3.get(token_type) {
+                Some(Box::new(*token_type))
             } else {
-                println!("No rule for token: {:?}", token);
-                None
+                if let Some(token_type) = map4.get(token_type) {
+                    Some(Box::new(*token_type))
+                }
+                else {
+                    println!("No rule for token type: {:?}", token_type);
+                    None
+                }
             }
         }
     }
 }
 
-pub fn get_infix_rule(token: &Token) -> Option<Box<dyn InfixParser>> {
+pub fn get_infix_rule(token_type: &TokenType) -> Option<Box<dyn InfixParser>> {
     let mut map = HashMap::new();
     map.insert(TokenType::Plus, InfixOperatorParser::new(Precedence::Term));
     map.insert(TokenType::Minus, InfixOperatorParser::new(Precedence::Term));
@@ -60,13 +69,13 @@ pub fn get_infix_rule(token: &Token) -> Option<Box<dyn InfixParser>> {
     let mut map2 = HashMap::new();
     map2.insert(TokenType::LeftParen, CallParser::new());
 
-    if let Some(token_type) = map.get(&token.token_type) {
+    if let Some(token_type) = map.get(&token_type) {
         Some(Box::new(*token_type))
     } else {
-        if let Some(token_type) = map2.get(&token.token_type) {
+        if let Some(token_type) = map2.get(&token_type) {
             Some(Box::new(*token_type))
         } else {
-            println!("No rule for token: {:?}", token);
+            println!("No rule for token type: {:?}", token_type);
             None
         }
     }
@@ -75,7 +84,7 @@ pub fn get_infix_rule(token: &Token) -> Option<Box<dyn InfixParser>> {
 pub fn get_precedence(token: &Token) -> Precedence {
     let mut precedence = Precedence::None;
 
-    if let Some(parser) = get_infix_rule(token) {
+    if let Some(parser) = get_infix_rule(&token.token_type) {
         precedence = parser.get_precedence();
     }
 
@@ -195,5 +204,43 @@ impl InfixParser for CallParser {
 
     fn get_precedence(&self) -> Precedence {
         Precedence::Call
+    }
+}
+
+#[derive(Copy, Clone)]
+struct UnaryParser {}
+
+impl UnaryParser {
+    pub fn new() -> Self { UnaryParser {} }
+}
+
+impl PrefixParser for UnaryParser {
+    fn parse<'a>(&self, parser: &mut EvalParser, token: Token<'a>) -> Expr {
+        // var operatorType = token.Type;
+        //
+        // var expr = Expression();
+        //
+        // var op = operatorType switch
+        // {
+        //     TokenType.Minus => UnaryOperator.Negate,
+        //     TokenType.Bang => UnaryOperator.Not,
+        //     _ => throw new Exception() // TODO
+        // };
+        //
+        // return new UnaryExpression(op, expr);
+
+        let operator_type = token.token_type;
+
+        let expr = parser.parse_expression();
+
+        let op = match operator_type {
+            TokenType::Minus => UnaryOperator::Negate,
+            TokenType::Bang => UnaryOperator::Not,
+            _ => panic!("TODO"),
+        };
+
+        Expr::new(ExprKind::Unary(
+            UnaryExpr::new(expr, op)
+        ))
     }
 }
