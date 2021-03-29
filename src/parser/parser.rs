@@ -129,6 +129,7 @@ impl<'a> EvalParser<'a> {
         let fun_decl = FunctionDeclaration::new(
             parameters, body
         );
+
         Expr::new(ExprKind::Function(
             FunctionExpr::new(
                 Variable::new(identifier.source.to_string()),
@@ -174,7 +175,6 @@ impl<'a> EvalParser<'a> {
     }
 
     fn parse_do(&mut self) -> Expr {
-        // Consume "do" keyword
         self.expect(TokenType::Keyword(Keyword::Do));
         self.expect(TokenType::Line);
 

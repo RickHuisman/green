@@ -4,6 +4,7 @@ use crate::compiler::value::Value;
 use crate::compiler::chunk::Chunk;
 use crate::compiler::object::{Object, EvalFunction, EvalFunctionType};
 use crate::compiler::local::Local;
+use std::process::id;
 
 #[derive(Debug, Clone)]
 struct CompilerInstance {
@@ -262,7 +263,15 @@ impl Compiler {
 
         // Create the function object.
         let function = self.end_compiler();
-        self.emit_constant(Value::Obj(Object::Function(function)));
+
+        self.emit(Opcode::Closure);
+
+        let idx = self.current_chunk().add_constant(
+            Value::Obj(Object::Function(function))
+        );
+
+        self.emit_byte(idx);
+        // self.emit_constant(Value::Obj(Object::Function(function)));
 
         self.compile_define_var(fun_expr.variable); // TODO fun is always global?
     }

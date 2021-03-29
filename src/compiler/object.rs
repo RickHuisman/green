@@ -1,15 +1,40 @@
 use crate::compiler::chunk::Chunk;
+use std::fmt::{Display, Formatter};
+use std::fmt;
 
 #[derive(Debug, Clone)]
 pub enum Object {
     String(String),
+    Closure(EvalClosure),
     Function(EvalFunction),
+}
+
+impl Display for Object {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Object::String(s) => write!(f, "{}", s),
+            Object::Closure(c) => write!(f, "<fn {}>", c.function.name),
+            Object::Function(fun) => write!(f, "<fn {}>", fun.name),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum EvalFunctionType {
+    Closure,
     Function,
     Script,
+}
+
+#[derive(Debug, Clone)]
+pub struct EvalClosure {
+    pub function: EvalFunction,
+}
+
+impl EvalClosure {
+    pub fn new(function: EvalFunction) -> EvalClosure {
+        EvalClosure { function }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -26,6 +51,10 @@ impl EvalFunction {
 
     pub fn chunk(&self) -> &Chunk {
         &self.chunk
+    }
+
+    pub fn arity(&self) -> &u8 {
+        &self.arity
     }
 
     pub fn name_mut(&mut self) -> &mut String {

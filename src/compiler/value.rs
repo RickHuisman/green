@@ -100,10 +100,9 @@ impl Neg for Value {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
-        if let Value::Number(a) = self {
-            Value::Number(-a)
-        } else {
-            todo!() // TODO
+        match self {
+            Value::Number(a) => Value::Number(-a),
+            _ => todo!(),
         }
     }
 }
@@ -112,7 +111,7 @@ impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
         if let Value::Number(b) = self {
             if let Value::Number(a) = other {
-                a == b
+                b == a
             } else {
                 panic!("Operand must be a number.");
             }
@@ -153,10 +152,10 @@ impl Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Value::Number(n) => write!(f, "{}", n),
-            Value::True => write!(f, "'true'"),
-            Value::False => write!(f, "'false'"),
-            Value::Nil => write!(f, "'nil'"),
-            Value::Obj(obj) => write!(f, "Obj {:?}", obj)
+            Value::True => write!(f, "true"),
+            Value::False => write!(f, "false"),
+            Value::Nil => write!(f, "nil"),
+            Value::Obj(obj) => write!(f, "{}", obj)
         }
     }
 }

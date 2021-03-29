@@ -8,7 +8,7 @@ pub struct Chunk {
     name: String,
     code: Vec<u8>,
     constants: Vec<Value>,
-    lines: Vec<usize>
+    lines: Vec<usize>,
 }
 
 impl Chunk {
@@ -101,6 +101,15 @@ fn disassemble_instruction(f: &mut Formatter<'_>, chunk: &Chunk, offset: &mut us
         Opcode::SetLocal => byte_instruction(chunk, f, "OP_SET_LOCAL", offset),
         Opcode::Nil => simple_instruction(f, "OP_NIL", offset),
         Opcode::Call => byte_instruction(chunk, f, "OP_CALL", offset),
+        Opcode::Closure => {
+            *offset += 2;
+
+            let constant = chunk.code[*offset-1];
+            write!(f, "{:-16} {:4} ", "OP_CLOSURE", constant);
+            writeln!(f, "'{}'", chunk.constants()[constant as usize]);
+
+            *offset
+        }
     }
 }
 

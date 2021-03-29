@@ -1,1 +1,5 @@
-print(!true)
+def foo(x)
+    print(x)
+end
+
+foo(10)

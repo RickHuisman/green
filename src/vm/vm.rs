@@ -2,7 +2,7 @@ use crate::compiler::chunk::Chunk;
 use crate::compiler::value::{Value, value_to_string};
 use crate::compiler::opcode::Opcode;
 use std::collections::HashMap;
-use crate::compiler::object::{Object, EvalFunction};
+use crate::compiler::object::{Object, EvalFunction, EvalClosure};
 use crate::vm::callframe::CallFrame;
 use crate::compiler::compiler::Compiler;
 use crate::parser::parser::EvalParser;
@@ -26,8 +26,12 @@ impl VM {
         let exprs = EvalParser::parse(source);
         let function = Compiler::compile(exprs);
 
-        self.push(Value::Obj(Object::Function(function.clone())));
-        self.call_value(Value::Obj(Object::Function(function)), 0);
+        let closure = EvalClosure::new(function);
+        self.push(Value::Obj(Object::Closure(closure.clone())));
+        self.call_value(Value::Obj(Object::Closure(closure.clone())), 0);
+
+        // self.push(Value::Obj(Object::Function(function.clone())));
+        // self.call_value(Value::Obj(Object::Function(function)), 0);
 
         self.run()
     }
@@ -58,6 +62,7 @@ impl VM {
                 Opcode::SetLocal => self.set_local(),
                 Opcode::Nil => self.nil(),
                 Opcode::Call => self.call_instruction(),
+                Opcode::Closure => self.closure(),
             }
         }
     }
@@ -191,7 +196,7 @@ impl VM {
     }
 
     fn call_instruction(&mut self) {
-        let arity = self.read_byte() as usize;
+        let arity = self.read_byte();
         let frame_start = self.stack.len() - (arity + 1) as usize;
         let callee = self.stack[frame_start].clone();
 
@@ -200,24 +205,52 @@ impl VM {
         }
     }
 
-    fn call(&mut self, fun: EvalFunction, arity: usize) -> bool {
+    fn closure(&mut self) {
+        let function = self.read_constant(); // TODO Convert to function
+
+        match function {
+            Value::Obj(obj) => {
+                match obj {
+                    Object::Function(fun) => {
+                        let closure = EvalClosure::new(fun);
+                        self.push(Value::Obj(Object::Closure(closure)));
+                    },
+                    _ => {
+                        println!("{:?}", obj);
+                        todo!()
+                    }
+                }
+            }
+            _ => todo!()
+        }
+        // var function = ReadConstant().AsFunction;
+        // var closure = new ObjClosure(function);
+        // Push(Value.Obj(closure));
+    }
+
+    fn call(&mut self, closure: EvalClosure, arity: u8) -> bool {
+        if arity != *closure.function.arity() {
+            panic!("Expected {} arguments but got {}.", closure.function.arity(), arity);
+        }
+
         let last = self.stack.len();
         let frame_start = last - (arity + 1) as usize;
 
         self.frames.push(CallFrame::new(
-            fun,
+            closure,
             frame_start,
         ));
 
         true
     }
 
-    fn call_value(&mut self, callee: Value, arity: usize) -> bool {
+    fn call_value(&mut self, callee: Value, arity: u8) -> bool {
         // Check if callee is obj
         match callee {
             Value::Obj(obj) => {
                 match obj {
-                    Object::Function(fun) => self.call(fun, arity),
+                    Object::Closure(c) => self.call(c, arity),
+                    // Object::Function(fun) => self.call(fun, arity),
                     _ => panic!("Can only call functions"),
                 }
             }
@@ -273,10 +306,10 @@ impl VM {
     }
 
     fn current_chunk(&self) -> &Chunk {
-        &self.frame().function.chunk()
+        &self.frame().closure.function.chunk()
     }
 
     fn current_chunk_mut(&mut self) -> &mut Chunk {
-        self.frame_mut().function.chunk_mut()
+        self.frame_mut().closure.function.chunk_mut()
     }
 }
