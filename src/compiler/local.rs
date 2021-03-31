@@ -1,11 +1,11 @@
 #[derive(Debug, Clone)]
 pub struct Local {
-    name: String, // TODO &str??
-    depth: i32,
+    name: String,
+    depth: isize,
 }
 
 impl Local {
-    pub fn new(name: String, depth: i32) -> Self {
+    pub fn new(name: String, depth: isize) -> Self {
         Local { name, depth }
     }
 
@@ -13,11 +13,11 @@ impl Local {
         &self.name
     }
 
-    pub fn depth(&self) -> &i32 {
+    pub fn depth(&self) -> &isize {
         &self.depth
     }
 
-    pub fn depth_mut(&mut self) -> &mut i32 {
+    pub fn depth_mut(&mut self) -> &mut isize {
         &mut self.depth
     }
 }

@@ -2,10 +2,10 @@ use crate::compiler::chunk::Chunk;
 use crate::compiler::value::{Value, value_to_string};
 use crate::compiler::opcode::Opcode;
 use std::collections::HashMap;
-use crate::compiler::object::{Object, EvalFunction, EvalClosure};
+use crate::compiler::object::{Object, EvalClosure};
 use crate::vm::callframe::CallFrame;
 use crate::compiler::compiler::Compiler;
-use crate::parser::parser::EvalParser;
+use crate::syntax::parser::{EvalParser, ParserError, ModuleAst};
 
 pub struct VM {
     stack: Vec<Value>,
@@ -23,15 +23,12 @@ impl VM {
     }
 
     pub fn interpret(&mut self, source: &str) {
-        let exprs = EvalParser::parse(source);
-        let function = Compiler::compile(exprs);
+        let module = EvalParser::parse(source).unwrap();
+        let function = Compiler::compile_module(module);
 
         let closure = EvalClosure::new(function);
         self.push(Value::Obj(Object::Closure(closure.clone())));
         self.call_value(Value::Obj(Object::Closure(closure.clone())), 0);
-
-        // self.push(Value::Obj(Object::Function(function.clone())));
-        // self.call_value(Value::Obj(Object::Function(function)), 0);
 
         self.run()
     }

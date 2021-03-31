@@ -1,7 +1,6 @@
 use crate::vm::vm::VM;
 
-mod scanner;
-mod parser;
+mod syntax;
 mod compiler;
 mod vm;
 

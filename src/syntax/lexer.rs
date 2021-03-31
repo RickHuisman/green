@@ -1,7 +1,7 @@
 use std::str::{CharIndices, FromStr};
-use crate::scanner::token::{Token, TokenType, Position, Keyword};
-use crate::scanner::error::SyntaxError;
-use crate::scanner::peek::PeekWithNext;
+use crate::syntax::token::{Token, TokenType, Position, Keyword};
+use crate::syntax::error::SyntaxError;
+use crate::syntax::peek::PeekWithNext;
 
 type Result<T> = std::result::Result<T, SyntaxError>;
 
@@ -12,40 +12,39 @@ pub struct Lexer<'a> {
 }
 
 impl<'a> Lexer<'a> {
-    pub fn parse(source: &str) -> Result<Vec<Token>> {
+    fn new(source: &'a str) -> Self {
         let chars = PeekWithNext::new(source.char_indices());
-        let mut lexer = Lexer { source, chars, line: 1 };
+        Lexer { source, chars, line: 1 }
+    }
+
+    pub fn parse(source: &str) -> Result<Vec<Token>> {
+        let mut lexer = Lexer::new(source);
 
         let mut tokens = vec![];
         while !lexer.is_at_end() {
-            if let Some(token) = lexer.read_token() {
-                tokens.push(token?);
-            } else {
-                break;
-            }
+            tokens.push(lexer.read_token()?);
         }
 
         Ok(tokens)
     }
 
-    fn read_token(&mut self) -> Option<Result<Token<'a>>> {
+    fn read_token(&mut self) -> Result<Token<'a>> {
         self.skip_whitespace();
 
         let c = self.advance();
-        if c.is_none() {
+        if c.is_none() { // TODO ???
             if self.is_at_end() {
-                return Some(Ok(self.eof()));
+                return Ok(self.eof())
             }
-            return None
         }
-        let (start, char) = c?;
+        let (start, char) = c.unwrap();
 
         if char.is_alphabetic() {
-            return Some(self.identifier(start));
+            return self.identifier(start);
         }
 
         if char.is_digit(10) {
-            return Some(self.number(start));
+            return self.number(start);
         }
 
         let token_type = match char {
@@ -100,9 +99,9 @@ impl<'a> Lexer<'a> {
 
                         let mut token = self.make_token(start, ty);
                         token.source = source;
-                        Some(Ok(token))
+                        Ok(token)
                     },
-                    Err(err) => Some(Err(err)),
+                    Err(err) => Err(err),
                 }
             },
             '#' => {
@@ -112,10 +111,10 @@ impl<'a> Lexer<'a> {
                 TokenType::LineComment
             }
             _ => {
-                return Some(Err(SyntaxError::UnexpectedChar(char)));
+                return Err(SyntaxError::UnexpectedChar(char));
             },
         };
-        Some(Ok(self.make_token(start, token_type)))
+        Ok(self.make_token(start, token_type))
     }
 
     fn identifier(&mut self, start: usize) -> Result<Token<'a>> {
@@ -230,7 +229,7 @@ impl<'a> Lexer<'a> {
 #[cfg(test)]
 mod tests {
     use super::Lexer;
-    use crate::scanner::token::{Token, TokenType, Position};
+    use crate::syntax::token::{Token, TokenType, Position};
 
     #[test]
     fn parse_number() {

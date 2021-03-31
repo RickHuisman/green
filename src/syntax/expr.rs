@@ -1,6 +1,5 @@
-use crate::scanner::token::TokenType;
+use crate::syntax::token::TokenType;
 use std::fmt::Display;
-use crate::parser::ast::expr::ExprKind::For;
 
 #[derive(PartialEq, Debug)]
 pub struct Expr {
@@ -16,6 +15,14 @@ impl Display for Expr {
 impl Expr {
     pub fn new(node: ExprKind) -> Expr {
         Expr { node: Box::new(node) }
+    }
+
+    pub fn block(block: BlockExpr) -> Expr {
+        Expr::new(ExprKind::Block(block))
+    }
+
+    pub fn return_(return_expr: ReturnExpr) -> Expr {
+        Expr::new(ExprKind::Return(return_expr))
     }
 }
 
@@ -63,7 +70,6 @@ impl ImportExpr {
 pub enum LiteralExpr {
     Number(f64),
     String(String),
-    // TODO Make &'a str
     True,
     False,
     Nil, // TODO Nil???
@@ -71,14 +77,14 @@ pub enum LiteralExpr {
 
 #[derive(PartialEq, Debug)]
 pub struct BinaryExpr {
-    pub lhs: Box<Expr>,
-    pub rhs: Box<Expr>,
+    pub lhs: Expr,
+    pub rhs: Expr,
     pub operator: BinaryOperator,
 }
 
 impl BinaryExpr {
     pub fn new(lhs: Expr, rhs: Expr, operator: BinaryOperator) -> BinaryExpr {
-        BinaryExpr { lhs: Box::new(lhs), rhs: Box::new(rhs), operator }
+        BinaryExpr { lhs, rhs, operator }
     }
 }
 
@@ -117,13 +123,13 @@ impl BinaryOperator {
 
 #[derive(PartialEq, Debug)]
 pub struct UnaryExpr {
-    pub expr: Box<Expr>,
+    pub expr: Expr,
     pub operator: UnaryOperator,
 }
 
 impl UnaryExpr {
     pub fn new(expr: Expr, operator: UnaryOperator) -> Self {
-        UnaryExpr { expr: Box::new(expr), operator }
+        UnaryExpr { expr, operator }
     }
 }
 
@@ -146,12 +152,12 @@ impl BlockExpr {
 
 #[derive(PartialEq, Debug)]
 pub struct GroupingExpr {
-    pub expr: Box<Expr>,
+    pub expr: Expr,
 }
 
 impl GroupingExpr {
     pub fn new(expr: Expr) -> Self {
-        GroupingExpr { expr: Box::new(expr) }
+        GroupingExpr { expr }
     }
 }
 

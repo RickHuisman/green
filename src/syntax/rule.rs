@@ -1,14 +1,16 @@
-use crate::scanner::token::{TokenType, Token, Keyword};
-use crate::parser::parser::EvalParser;
+use crate::syntax::token::{TokenType, Token, Keyword};
+use crate::syntax::parser::{EvalParser, ParserError};
 use std::collections::HashMap;
-use crate::parser::ast::expr::{Expr, LiteralExpr, ExprKind, BinaryExpr, BinaryOperator, GroupingExpr, CallExpr, UnaryOperator, UnaryExpr};
+use crate::syntax::expr::{Expr, LiteralExpr, ExprKind, BinaryExpr, BinaryOperator, GroupingExpr, CallExpr, UnaryOperator, UnaryExpr};
+
+type Result<T> = std::result::Result<T, ParserError>;
 
 pub trait PrefixParser {
-    fn parse<'a>(&self, parser: &mut EvalParser, token: Token<'a>) -> Expr;
+    fn parse<'a>(&self, parser: &mut EvalParser, token: Token<'a>) -> Result<Expr>;
 }
 
 pub trait InfixParser {
-    fn parse<'a>(&self, parser: &mut EvalParser, left: Expr, token: Token<'a>) -> Expr;
+    fn parse<'a>(&self, parser: &mut EvalParser, left: Expr, token: Token<'a>) -> Result<Expr>;
     fn get_precedence(&self) -> Precedence;
 }
 
@@ -110,10 +112,10 @@ pub enum Precedence {
 }
 
 #[derive(Copy, Clone)]
-struct LiteralParser {}
+struct LiteralParser;
 
 impl PrefixParser for LiteralParser {
-    fn parse<'a>(&self, parser: &mut EvalParser, token: Token<'a>) -> Expr {
+    fn parse<'a>(&self, parser: &mut EvalParser, token: Token<'a>) -> Result<Expr> {
         let op = match token.token_type {
             TokenType::Number => {
                 LiteralExpr::Number(token.source.parse::<f64>().unwrap())
@@ -123,27 +125,27 @@ impl PrefixParser for LiteralParser {
             TokenType::Keyword(Keyword::False) => LiteralExpr::False,
             _ => panic!("No rule for token: {:?}", token),
         };
-        Expr::new(ExprKind::Literal(op))
+        Ok(Expr::new(ExprKind::Literal(op)))
     }
 }
 
 #[derive(Copy, Clone)]
-struct GroupingParser {}
+struct GroupingParser;
 
 impl PrefixParser for GroupingParser {
-    fn parse<'a>(&self, parser: &mut EvalParser, token: Token<'a>) -> Expr {
-        let expr = parser.parse_expression();
-        parser.expect(TokenType::RightParen);
-        Expr::new(ExprKind::Grouping(GroupingExpr::new(expr)))
+    fn parse<'a>(&self, parser: &mut EvalParser, token: Token<'a>) -> Result<Expr> {
+        let expr = parser.parse_expression()?;
+        parser.expect(TokenType::RightParen)?;
+        Ok(Expr::new(ExprKind::Grouping(GroupingExpr::new(expr))))
     }
 }
 
 #[derive(Copy, Clone)]
-struct IdentifierParser {}
+struct IdentifierParser;
 
 impl PrefixParser for IdentifierParser {
-    fn parse<'a>(&self, parser: &mut EvalParser, token: Token<'a>) -> Expr {
-        parser.parse_var(token)
+    fn parse<'a>(&self, parser: &mut EvalParser, token: Token<'a>) -> Result<Expr> {
+        Ok(parser.parse_var(token)?)
     }
 }
 
@@ -159,9 +161,9 @@ impl InfixOperatorParser {
 }
 
 impl InfixParser for InfixOperatorParser {
-    fn parse<'a>(&self, parser: &mut EvalParser, left: Expr, token: Token<'a>) -> Expr {
+    fn parse<'a>(&self, parser: &mut EvalParser, left: Expr, token: Token<'a>) -> Result<Expr> {
         // Assume left associativity.
-        let right = parser.parse_precedence(self.precedence);
+        let right = parser.parse_precedence(self.precedence)?;
 
         let binary = BinaryExpr::new(
             left,
@@ -169,7 +171,7 @@ impl InfixParser for InfixOperatorParser {
             BinaryOperator::from_token(token.token_type),
         );
 
-        Expr::new(ExprKind::Binary(binary))
+        Ok(Expr::new(ExprKind::Binary(binary)))
     }
 
     fn get_precedence(&self) -> Precedence {
@@ -185,21 +187,21 @@ impl CallParser {
 }
 
 impl InfixParser for CallParser {
-    fn parse<'a>(&self, parser: &mut EvalParser, left: Expr, token: Token<'a>) -> Expr {
+    fn parse<'a>(&self, parser: &mut EvalParser, left: Expr, token: Token<'a>) -> Result<Expr> {
         let mut args = vec![];
-        if !parser.match_(TokenType::RightParen) {
+        if !parser.match_(TokenType::RightParen)? {
 
-            args.push(parser.parse_expression());
-            while parser.match_(TokenType::Comma) {
-                parser.consume();
-                args.push(parser.parse_expression());
+            args.push(parser.parse_expression()?);
+            while parser.match_(TokenType::Comma)? {
+                parser.consume()?;
+                args.push(parser.parse_expression()?);
             }
         }
-        parser.expect(TokenType::RightParen);
+        parser.expect(TokenType::RightParen)?;
 
-        Expr::new(ExprKind::Call(
+        Ok(Expr::new(ExprKind::Call(
             CallExpr::new(left, args)
-        ))
+        )))
     }
 
     fn get_precedence(&self) -> Precedence {
@@ -215,19 +217,19 @@ impl UnaryParser {
 }
 
 impl PrefixParser for UnaryParser {
-    fn parse<'a>(&self, parser: &mut EvalParser, token: Token<'a>) -> Expr {
+    fn parse<'a>(&self, parser: &mut EvalParser, token: Token<'a>) -> Result<Expr> {
         let operator_type = token.token_type;
 
-        let expr = parser.parse_expression();
+        let expr = parser.parse_expression()?;
 
         let op = match operator_type {
             TokenType::Minus => UnaryOperator::Negate,
             TokenType::Bang => UnaryOperator::Not,
-            _ => panic!("TODO"),
+            _ => panic!("TODO"), // TODO
         };
 
-        Expr::new(ExprKind::Unary(
+        Ok(Expr::new(ExprKind::Unary(
             UnaryExpr::new(expr, op)
-        ))
+        )))
     }
 }

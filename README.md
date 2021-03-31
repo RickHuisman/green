@@ -1,5 +1,6 @@
 TODO:
 * Modules
+* Standard library
 * Type system
 * Garbage collector
 * Inline if else
