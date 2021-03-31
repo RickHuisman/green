@@ -1,5 +1,6 @@
 use crate::scanner::token::TokenType;
 use std::fmt::Display;
+use crate::parser::ast::expr::ExprKind::For;
 
 #[derive(PartialEq, Debug)]
 pub struct Expr {
@@ -7,7 +8,7 @@ pub struct Expr {
 }
 
 impl Display for Expr {
-    fn fmt (&self, fmt: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
         write!(fmt, "test")
     }
 }
@@ -20,6 +21,7 @@ impl Expr {
 
 #[derive(PartialEq, Debug)]
 pub enum ExprKind {
+    Import(ImportExpr),
     Literal(LiteralExpr),
     Binary(BinaryExpr),
     Unary(UnaryExpr),
@@ -27,12 +29,13 @@ pub enum ExprKind {
     VarAssign(VarAssignExpr),
     VarSet(VarSetExpr),
     VarGet(VarGetExpr),
-    Print(Expr), // TODO Box<Expr>???
+    Print(Expr),
     Grouping(GroupingExpr),
     If(IfExpr),
     IfElse(IfElseExpr),
     Function(FunctionExpr),
     Call(CallExpr),
+    For(ForExpr),
     Return(ReturnExpr),
 }
 
@@ -46,9 +49,21 @@ impl ExprKind {
 }
 
 #[derive(PartialEq, Debug)]
+pub struct ImportExpr {
+    pub module: String,
+}
+
+impl ImportExpr {
+    pub fn new(module: String) -> Self {
+        ImportExpr { module }
+    }
+}
+
+#[derive(PartialEq, Debug)]
 pub enum LiteralExpr {
     Number(f64),
-    String(String), // TODO Make &'a str
+    String(String),
+    // TODO Make &'a str
     True,
     False,
     Nil, // TODO Nil???
@@ -232,6 +247,15 @@ pub struct FunctionExpr {
 impl FunctionExpr {
     pub fn new(variable: Variable, declaration: FunctionDeclaration) -> Self {
         FunctionExpr { variable, declaration }
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct ForExpr {}
+
+impl ForExpr {
+    pub fn new() -> Self {
+        ForExpr {}
     }
 }
 

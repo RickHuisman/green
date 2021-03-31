@@ -65,6 +65,8 @@ impl Compiler {
             ExprKind::Function(function) => self.compile_function(function),
             ExprKind::Call(call) => self.compile_call(call),
             ExprKind::Return(ret_expr) => self.compile_return(ret_expr),
+            ExprKind::For(_) => todo!(),
+            ExprKind::Import(_) => todo!(),
         }
     }
 
@@ -266,12 +268,11 @@ impl Compiler {
 
         self.emit(Opcode::Closure);
 
-        let idx = self.current_chunk().add_constant(
+        let constant_id = self.current_chunk().add_constant(
             Value::Obj(Object::Function(function))
         );
 
-        self.emit_byte(idx);
-        // self.emit_constant(Value::Obj(Object::Function(function)));
+        self.emit_byte(constant_id);
 
         self.compile_define_var(fun_expr.variable); // TODO fun is always global?
     }

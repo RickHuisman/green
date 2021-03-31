@@ -216,19 +216,6 @@ impl UnaryParser {
 
 impl PrefixParser for UnaryParser {
     fn parse<'a>(&self, parser: &mut EvalParser, token: Token<'a>) -> Expr {
-        // var operatorType = token.Type;
-        //
-        // var expr = Expression();
-        //
-        // var op = operatorType switch
-        // {
-        //     TokenType.Minus => UnaryOperator.Negate,
-        //     TokenType.Bang => UnaryOperator.Not,
-        //     _ => throw new Exception() // TODO
-        // };
-        //
-        // return new UnaryExpression(op, expr);
-
         let operator_type = token.token_type;
 
         let expr = parser.parse_expression();

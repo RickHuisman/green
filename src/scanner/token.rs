@@ -50,7 +50,6 @@ pub enum TokenType {
     GreaterThan,
     GreaterThanEqual,
     Slash,
-    Comment,
 
     // Literals
     String,
@@ -58,8 +57,9 @@ pub enum TokenType {
 
     // Keywords
     Keyword(Keyword),
-
     Identifier,
+
+    Comment,
     LineComment,
     Line,
 
@@ -68,6 +68,7 @@ pub enum TokenType {
 
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub enum Keyword {
+    Import,
     Print,
     Do,
     End,
@@ -79,6 +80,7 @@ pub enum Keyword {
     True,
     False,
     Return,
+    For,
 }
 
 impl FromStr for Keyword {
@@ -86,6 +88,7 @@ impl FromStr for Keyword {
 
     fn from_str(word: &str) -> Result<Self, Self::Err> {
         match word {
+            "import" => Ok(Keyword::Import),
             "print" => Ok(Keyword::Print),
             "do" => Ok(Keyword::Do),
             "end" => Ok(Keyword::End),

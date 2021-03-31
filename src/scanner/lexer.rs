@@ -282,6 +282,17 @@ mod tests {
         }
     }
 
+    #[test]
+    fn parse_import() {
+        let input = r#"
+        import foo.bar
+        "#;
+
+        let actual = Lexer::parse(input).unwrap();
+        for token in actual {
+            println!("{:?}", token);
+        }
+    }
 //     #[test]
 //     fn parse_var2() {
 //         let input = r#"

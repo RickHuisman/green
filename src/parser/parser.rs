@@ -1,7 +1,7 @@
 use crate::scanner::lexer::Lexer;
 use crate::scanner::token::{Token, TokenType, Keyword};
 use crate::parser::rule::{Precedence, get_prefix_rule, get_precedence, get_infix_rule};
-use crate::parser::ast::expr::{Expr, ExprKind, BlockExpr, LiteralExpr, Variable, VarSetExpr, VarGetExpr, VarAssignExpr, IfExpr, IfElseExpr, FunctionDeclaration, FunctionExpr, ReturnExpr};
+use crate::parser::ast::expr::{Expr, ExprKind, BlockExpr, LiteralExpr, Variable, VarSetExpr, VarGetExpr, VarAssignExpr, IfExpr, IfElseExpr, FunctionDeclaration, FunctionExpr, ReturnExpr, ForExpr, ImportExpr};
 use crate::scanner::morpher::morph;
 
 pub struct EvalParser<'a> {
@@ -40,11 +40,13 @@ impl<'a> EvalParser<'a> {
     // Eval doesn't have statements but "top-level" expressions.
     fn parse_top_level_expression(&mut self) -> Expr {
         match self.peek_type() {
+            TokenType::Keyword(Keyword::Import) => self.parse_import(),
             TokenType::Keyword(Keyword::Print) => self.parse_print(),
             TokenType::Keyword(Keyword::Def) => self.declare_def(),
             TokenType::Keyword(Keyword::Var) => self.declare_var(),
             TokenType::Keyword(Keyword::Do) => self.parse_do(),
             TokenType::Keyword(Keyword::If) => self.parse_if(),
+            TokenType::Keyword(Keyword::For) => self.parse_for(),
             TokenType::Keyword(Keyword::Return) => self.parse_return(),
             _ => self.parse_expression()
         }
@@ -92,6 +94,20 @@ impl<'a> EvalParser<'a> {
         }
 
         infix2
+    }
+
+    fn parse_import(&mut self) -> Expr {
+        self.expect(TokenType::Keyword(Keyword::Import));
+
+        // Consume tokens till end of line, this is the path of the module.
+        let mut module_path = String::new();
+        while self.peek_type() != TokenType::Line {
+            module_path.push_str(self.consume().source);
+        }
+        // self.expect(TokenType::)
+
+        let import_expr = ImportExpr::new(module_path.to_string());
+        Expr::new(ExprKind::Import(import_expr))
     }
 
     fn parse_print(&mut self) -> Expr {
@@ -212,6 +228,12 @@ impl<'a> EvalParser<'a> {
         Expr::new(expr_kind)
     }
 
+    fn parse_for(&mut self) -> Expr {
+        self.expect(TokenType::Keyword(Keyword::For));
+
+        Expr::new(ExprKind::For(ForExpr::new()))
+    }
+
     fn parse_return(&mut self) -> Expr {
         self.expect(TokenType::Keyword(Keyword::Return));
 
@@ -308,6 +330,18 @@ mod test {
         else
             print(10)
         end
+        "#;
+
+        let exprs = EvalParser::parse(input);
+        println!("{:?}", exprs);
+    }
+
+    #[test]
+    fn parse_import() {
+        let input = r#"
+        import foo.bar
+        import util
+        import ..bar.foo
         "#;
 
         let exprs = EvalParser::parse(input);
