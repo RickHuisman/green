@@ -139,7 +139,7 @@ impl<'a> EvalParser<'a> {
 
         // Consume tokens till end of line, this is the path of the module.
         let mut module_path = String::new();
-        while self.match_(TokenType::Line)? {
+        while !self.match_(TokenType::Line)? {
             module_path.push_str(self.consume()?.source);
         }
 

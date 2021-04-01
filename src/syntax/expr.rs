@@ -6,12 +6,6 @@ pub struct Expr {
     pub node: Box<ExprKind>,
 }
 
-impl Display for Expr {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
-        write!(fmt, "test")
-    }
-}
-
 impl Expr {
     pub fn new(node: ExprKind) -> Expr {
         Expr { node: Box::new(node) }
@@ -141,12 +135,12 @@ pub enum UnaryOperator {
 
 #[derive(PartialEq, Debug)]
 pub struct BlockExpr {
-    pub expressions: Vec<Expr>
+    pub exprs: Vec<Expr>
 }
 
 impl BlockExpr {
-    pub fn new(expressions: Vec<Expr>) -> Self {
-        BlockExpr { expressions }
+    pub fn new(exprs: Vec<Expr>) -> Self {
+        BlockExpr { exprs }
     }
 }
 
@@ -164,7 +158,7 @@ impl GroupingExpr {
 #[derive(PartialEq, Debug)]
 pub struct VarAssignExpr {
     pub variable: Variable,
-    pub initializer: Expr, // TODO Box???
+    pub initializer: Expr,
 }
 
 impl VarAssignExpr {
@@ -176,7 +170,7 @@ impl VarAssignExpr {
 #[derive(PartialEq, Debug)]
 pub struct VarSetExpr {
     pub variable: Variable,
-    pub initializer: Expr, // TODO Box???
+    pub initializer: Expr,
 }
 
 impl VarSetExpr {
@@ -198,7 +192,7 @@ impl VarGetExpr {
 
 #[derive(PartialEq, Debug)]
 pub struct Variable {
-    pub name: String, // TODO Make &str
+    pub name: String,
 }
 
 impl Variable {

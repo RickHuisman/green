@@ -1,6 +1,8 @@
 use std::path::Path;
-use crate::syntax::parser::ModuleAst;
+use crate::syntax::parser::{ModuleAst, EvalParser};
+use std::env::current_dir;
 
+#[derive(Debug)]
 pub enum ImportModuleError {
     FailedImport, // TODO
 }
@@ -8,30 +10,20 @@ pub enum ImportModuleError {
 pub fn get_module_ast(module: &String) -> Result<ModuleAst, ImportModuleError> {
     let module_path = resolve_module_path(module);
     let body = get_file_contents(module_path.to_str().unwrap()).unwrap();
-    // let module_ast = EvalParser::parse(&body)?;
-    // Ok(module_ast)
-    Err(ImportModuleError::FailedImport)
-    // let fun = Compiler::compile_module(module_ast);
-    // Err(ImportModuleError::FailedImport)
+    let module_ast = EvalParser::parse(&body).unwrap();
+    Ok(module_ast)
 }
 
-fn resolve_module_path(module: &String) -> &Path {
-    // let path = Path::new("").to_string();
-    // let mut path = "".to_string();
-    //
-    // for dir in module.split('.') {
-    //     let mut test = dir.to_string();
-    //     test.push_str("/");
-    //     path.push_str(&test);
-    // }
-    //
-    // path.pop();
-    // path.push_str(".eval");
-    // println!("{}", &path);
-    // // println!("{:?}", Path::new(&path));
-    // println!("{:?}", get_file_contents(&path));
+fn resolve_module_path(module: &String) -> Box<Path> {
+    let mut path = current_dir().unwrap();
+    path.push(Path::new("lib"));
+    for dir in module.split('.') {
+        path.push(Path::new(dir))
+    }
 
-    &Path::new("/Users/rickhuisman/Documents/rust/eval/lib/io.eval")
+    path.set_extension(Path::new("eval"));
+
+    path.into_boxed_path()
 }
 
 fn get_file_contents(path: &str) -> std::io::Result<String> {

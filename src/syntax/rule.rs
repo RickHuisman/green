@@ -180,7 +180,7 @@ impl InfixParser for InfixOperatorParser {
 }
 
 #[derive(Copy, Clone)]
-struct CallParser {}
+struct CallParser;
 
 impl CallParser {
     pub fn new() -> Self { CallParser {} }
@@ -210,7 +210,7 @@ impl InfixParser for CallParser {
 }
 
 #[derive(Copy, Clone)]
-struct UnaryParser {}
+struct UnaryParser;
 
 impl UnaryParser {
     pub fn new() -> Self { UnaryParser {} }

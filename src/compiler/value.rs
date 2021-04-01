@@ -1,6 +1,6 @@
 use std::ops::{Add, Sub, Mul, Div, Neg};
 use std::cmp::Ordering;
-use crate::compiler::object::Object;
+use crate::compiler::object::{Object, EvalClosure, EvalFunction};
 use std::fmt::{Display, Formatter};
 use std::fmt;
 
@@ -11,6 +11,20 @@ pub enum Value {
     False,
     Nil, // TODO Does Eval lang use nils???
     Obj(Object)
+}
+
+impl Value {
+    pub fn string(s: String) -> Value {
+        Value::Obj(Object::String(s))
+    }
+
+    pub fn closure(e: EvalClosure) -> Value {
+        Value::Obj(Object::Closure(e))
+    }
+
+    pub fn function(f: EvalFunction) -> Value {
+        Value::Obj(Object::Function(f))
+    }
 }
 
 impl From<Value> for bool {
@@ -135,6 +149,18 @@ impl PartialOrd for Value {
     }
 }
 
+impl Display for Value {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Value::Number(n) => write!(f, "{}", n),
+            Value::True => write!(f, "true"),
+            Value::False => write!(f, "false"),
+            Value::Nil => write!(f, "nil"),
+            Value::Obj(obj) => write!(f, "{}", obj)
+        }
+    }
+}
+
 // TODO There must be a better way to convert Value::Obj(Obj::String()) to String
 pub fn value_to_string(val: Value) -> String {
     match val {
@@ -145,17 +171,5 @@ pub fn value_to_string(val: Value) -> String {
             }
         }
         _ => panic!("TODO")
-    }
-}
-
-impl Display for Value {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Value::Number(n) => write!(f, "{}", n),
-            Value::True => write!(f, "true"),
-            Value::False => write!(f, "false"),
-            Value::Nil => write!(f, "nil"),
-            Value::Obj(obj) => write!(f, "{}", obj)
-        }
     }
 }

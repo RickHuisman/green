@@ -27,8 +27,8 @@ impl VM {
         let function = Compiler::compile_module(module);
 
         let closure = EvalClosure::new(function);
-        self.push(Value::Obj(Object::Closure(closure.clone())));
-        self.call_value(Value::Obj(Object::Closure(closure.clone())), 0);
+        self.push(Value::closure(closure.clone()));
+        self.call_value(Value::closure(closure.clone()), 0);
 
         self.run()
     }
@@ -67,7 +67,7 @@ impl VM {
     fn ret(&mut self) {
         if let Some(frame) = self.frames.pop() {
             let result = self.pop();
-            self.stack.truncate(frame.stack_start);
+            self.stack.truncate(*frame.stack_start());
             self.push(result);
         } else {
             panic!("Cannot return from top-level.");
@@ -158,22 +158,22 @@ impl VM {
         let offset = self.read_short();
 
         if !bool::from(self.peek()) { // TODO
-            self.frame_mut().ip += offset as usize;
+            *self.frame_mut().ip_mut() += offset as usize;
         }
     }
 
     fn jump(&mut self) {
         let offset = self.read_short();
-        self.frame_mut().ip += offset as usize;
+        *self.frame_mut().ip_mut() += offset as usize;
     }
 
     fn print(&mut self) {
         let popped = self.pop(); // TODO should not pop value of stack because it's an expression
-        println!("{:?}", popped); // TODO Implement display for Value enum
+        println!("{}", popped);
     }
 
     fn get_local(&mut self) {
-        let start = self.frame().stack_start;
+        let start = *self.frame().stack_start();
         let idx = self.read_byte() as usize;
         let val = self.stack[start + idx].clone(); // Clone???
         self.push(val);
@@ -183,7 +183,7 @@ impl VM {
         // We peek because we would just push it back after
         // the assignment occurs.
         let val = self.peek();
-        let start = self.frame().stack_start;
+        let start = *self.frame().stack_start();
         let idx = self.read_byte() as usize;
         self.stack[start + idx] = val;
     }
@@ -205,6 +205,7 @@ impl VM {
     fn closure(&mut self) {
         let function = self.read_constant(); // TODO Convert to function
 
+        // FIXME
         match function {
             Value::Obj(obj) => {
                 match obj {
@@ -220,9 +221,6 @@ impl VM {
             }
             _ => todo!()
         }
-        // var function = ReadConstant().AsFunction;
-        // var closure = new ObjClosure(function);
-        // Push(Value.Obj(closure));
     }
 
     fn call(&mut self, closure: EvalClosure, arity: u8) -> bool {
@@ -261,17 +259,17 @@ impl VM {
     }
 
     fn read_byte(&mut self) -> u8 {
-        let index = self.frame().ip;
+        let index = *self.frame().ip();
         let byte = self.current_chunk_mut().code()[index];
-        self.frame_mut().ip += 1;
+        *self.frame_mut().ip_mut() += 1;
         byte
     }
 
     fn read_short(&mut self) -> u16 {
-        self.frame_mut().ip += 2;
+        *self.frame_mut().ip_mut() += 2;
 
-        let lo_index = self.frame().ip - 2;
-        let hi_index = self.frame().ip - 1;
+        let lo_index = self.frame().ip() - 2;
+        let hi_index = self.frame().ip() - 1;
 
         let lo = self.current_chunk_mut().code()[lo_index] as u16;
         let hi = self.current_chunk_mut().code()[hi_index] as u16;
@@ -303,10 +301,10 @@ impl VM {
     }
 
     fn current_chunk(&self) -> &Chunk {
-        &self.frame().closure.function.chunk()
+        &self.frame().closure().function.chunk()
     }
 
     fn current_chunk_mut(&mut self) -> &mut Chunk {
-        self.frame_mut().closure.function.chunk_mut()
+        self.frame_mut().closure_mut().function.chunk_mut()
     }
 }

@@ -1,6 +1,6 @@
 use crate::syntax::token::{Token, TokenType};
 
-/// Cleans a sequence of tokens into a token sequence of meaningful tokens.
+/// Converts a sequence of tokens into a token sequence of only meaningful tokens.
 /// Tokens that are removed from the sequence:
 /// - Comments
 /// - Unessential lines

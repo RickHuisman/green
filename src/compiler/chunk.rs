@@ -30,16 +30,16 @@ impl Chunk {
         self.constants.len() as u8 - 1
     }
 
+    pub fn name_mut(&mut self) -> &mut String {
+        &mut self.name
+    }
+
     pub fn code(&self) -> &Vec<u8> {
         &self.code
     }
 
     pub fn code_mut(&mut self) -> &mut Vec<u8> {
         &mut self.code
-    }
-
-    pub fn name_mut(&mut self) -> &mut String {
-        &mut self.name
     }
 
     pub fn constants(&self) -> &Vec<Value> {
@@ -146,13 +146,6 @@ fn jump_instruction(
 
     *offset + 3
 }
-
-// private int ByteInstruction(StringBuilder builder, string name, int offset)
-// {
-// var slot = Code[offset + 1];
-// builder.AppendLine($"{name,-16} {slot,4:X}");
-// return offset + 2;
-// }
 
 fn byte_instruction(
     chunk: &Chunk,

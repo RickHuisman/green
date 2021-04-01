@@ -1,5 +1,5 @@
 TODO:
-* Modules
+* Core library
 * Standard library
 * Type system
 * Garbage collector
@@ -10,3 +10,4 @@ TODO:
 * Match expressions
 * Range expressions
 * Immutable variables (val)
+* String concatenation

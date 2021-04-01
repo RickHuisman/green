@@ -50,20 +50,12 @@ impl Compiler {
     }
 
     fn compile_import(&mut self, import: &ImportExpr) {
-        let path = get_module_ast(&import.module);
-        // let path = resolve_module_path(import.module.clone());
-        // let module_body = self.get_file_contents(path).unwrap();
-        // println!("{}", module_body);
+        let module = get_module_ast(&import.module).unwrap();
 
-
-        // Add module code to current chunk
-        // let fun_chunk = fun.chunk();
-        //
-        // *self.current_chunk() = fun_chunk.clone();
-    }
-
-    fn get_file_contents(&self, path: &Path) -> std::io::Result<String> {
-        std::fs::read_to_string(path)
+        // TODO Only compile top level expressions
+        for expr in module.exprs() {
+            self.compile_expr(expr);
+        }
     }
 
     fn compile_binary(&mut self, binary: &BinaryExpr) {
@@ -96,15 +88,16 @@ impl Compiler {
     fn compile_unary(&mut self, unary: &UnaryExpr) {
         self.compile_expr(&unary.expr);
 
-        match unary.operator {
-            UnaryOperator::Negate => self.emit(Opcode::Negate),
-            UnaryOperator::Not => self.emit(Opcode::Not),
-        }
+        let op = match unary.operator {
+            UnaryOperator::Negate => Opcode::Negate,
+            UnaryOperator::Not => Opcode::Not,
+        };
+        self.emit(op);
     }
 
     fn compile_block(&mut self, block: &BlockExpr) {
         self.begin_scope();
-        for expr in &block.expressions {
+        for expr in &block.exprs {
             self.compile_expr(expr);
         }
         self.end_scope();
@@ -159,7 +152,9 @@ impl Compiler {
         }
 
         self.emit(Opcode::DefineGlobal);
-        let constant_id = self.current_chunk().add_constant(Value::Obj(var.name.clone().into()));
+        let constant_id = self.current_chunk().add_constant(
+            Value::string(var.name.clone())
+        );
         self.emit_byte(constant_id);
     }
 
@@ -167,7 +162,8 @@ impl Compiler {
     fn compile_set_var(&mut self, var: &VarSetExpr) {
         self.compile_expr(&var.initializer);
 
-        let arg = self.resolve_local(&var.variable.name);
+        let var_name = &var.variable.name;
+        let arg = self.resolve_local(var_name);
         if arg != -1 {
             // Local
             self.emit(Opcode::SetLocal);
@@ -175,19 +171,16 @@ impl Compiler {
         } else {
             // Global
             self.emit(Opcode::SetGlobal);
-            let test = Value::Obj(
-                Object::String(
-                    var.variable.name.clone()
-                )
-            );
-            let constant_id = self.current_chunk().add_constant(test);
+            let str_obj = Value::string(var_name.clone());
+            let constant_id = self.current_chunk().add_constant(str_obj);
             self.emit_byte(constant_id);
         }
     }
 
     // print(x)
     fn compile_get_var(&mut self, var: &VarGetExpr) {
-        let arg = self.resolve_local(&var.variable.name);
+        let var_name = &var.variable.name;
+        let arg = self.resolve_local(var_name);
         if arg != -1 {
             // Local
             self.emit(Opcode::GetLocal);
@@ -195,12 +188,8 @@ impl Compiler {
         } else {
             // Global
             self.emit(Opcode::GetGlobal);
-            let test = Value::Obj(
-                Object::String(
-                    var.variable.name.clone()
-                )
-            );
-            let constant_id = self.current_chunk().add_constant(test);
+            let str_obj = Value::string(var_name.clone());
+            let constant_id = self.current_chunk().add_constant(str_obj);
             self.emit_byte(constant_id);
         }
     }
@@ -231,7 +220,7 @@ impl Compiler {
         let then_jump = self.emit_jump(Opcode::JumpIfFalse);
         self.emit(Opcode::Pop);
 
-        for expr in &if_else_expr.then_clause.expressions {
+        for expr in &if_else_expr.then_clause.exprs {
             self.compile_expr(expr);
         }
 
@@ -240,7 +229,7 @@ impl Compiler {
         self.patch_jump(then_jump);
         self.emit(Opcode::Pop);
 
-        for expr in &if_else_expr.else_clause.expressions {
+        for expr in &if_else_expr.else_clause.exprs {
             self.compile_expr(expr);
         }
 
@@ -273,7 +262,7 @@ impl Compiler {
         self.emit(Opcode::Closure);
 
         let constant_id = self.current_chunk().add_constant(
-            Value::Obj(Object::Function(function))
+            Value::function(function)
         );
 
         self.emit_byte(constant_id);
