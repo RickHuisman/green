@@ -1,4 +1,5 @@
 TODO:
+* Upvalues
 * Core library
 * Standard library
 * Type system
@@ -7,7 +8,10 @@ TODO:
 * Implicit return
 * Structs
 * Interfaces
-* Match expressions
+* Pattern matching
 * Range expressions
 * Immutable variables (val)
 * String concatenation
+* Lambda's
+* First class functions
+* FFI

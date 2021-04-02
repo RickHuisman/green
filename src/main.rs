@@ -1,13 +1,11 @@
 use crate::vm::vm::VM;
 
-mod syntax;
 mod compiler;
+mod syntax;
 mod vm;
 
 fn main() {
-    let source = get_file_contents(
-        "/Users/rickhuisman/Documents/rust/eval/src/test.txt"
-    );
+    let source = get_file_contents("/Users/rickhuisman/Documents/rust/eval/src/test.txt");
     run(&source.unwrap());
 }
 

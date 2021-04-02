@@ -59,6 +59,7 @@ impl<'a> Lexer<'a> {
             '%' => TokenType::Percent,
             '/' => TokenType::Slash,
             '*' => TokenType::Star,
+            ':' => TokenType::Colon,
             ';' | '\n' | '\r' => TokenType::Line,
             '!' => {
                 if self.match_next('=') {
@@ -235,7 +236,7 @@ mod tests {
     fn parse_number() {
         let expect = vec![
             Token::new(TokenType::Number, "2", Position::new(
-                0, 0,1
+                0, 0, 1
             )),
             Token::new(TokenType::Number, "10", Position::new(
                 2, 3, 1
@@ -255,7 +256,7 @@ mod tests {
     fn parse_string() {
         let expect = vec![
             Token::new(TokenType::String, "foo", Position::new(
-                0, 0,1
+                0, 0, 1
             )),
             Token::new(TokenType::String, "bar", Position::new(
                 2, 3, 1
@@ -271,7 +272,7 @@ mod tests {
     #[test]
     fn parse_def() {
         let input = r#"
-        def foo()
+        def double(x: Int) -> Int
         end
         "#;
 
@@ -292,68 +293,17 @@ mod tests {
             println!("{:?}", token);
         }
     }
-//     #[test]
-//     fn parse_var2() {
-//         let input = r#"
-//         var x = 10
-// "#;
-//
-//         let tokens = Lexer::parse(input);
-//         for token in tokens {
-//             println!("{:?}", token);
-//         }
-//     }
-//
-//     #[test]
-//     fn parse_var() {
-//         let input = "var x = if y == 10 then true else false";
-//
-//         let tokens = Lexer::parse(input);
-//         for token in tokens {
-//             println!("{:?}", token);
-//         }
-//     }
-//
-//     #[test]
-//     fn test_string() {
-//         let expect = vec![
-//             Token::new(
-//                 TokenType::String,
-//                 "\"Hello, World\"",
-//                 Position::new(0, 0, 1)
-//             ),
-//             Token::new(TokenType::EOF, "", Position::new(0,0,0)),
-//         ];
-//         let input = "\"Hello, World\"";
-//
-//         let tokens = Lexer::parse(input);
-//     }
-//
-//     #[test]
-//     fn parse_if_else() {
-//         let input = r#"
-//         if 10 > 5 then
-//             print(5)
-//         else
-//             print(10)
-// "#;
-//
-//         let tokens = Lexer::parse(input);
-//         for token in tokens {
-//             println!("{:?}", token);
-//         }
-//     }
-//
-//     #[test]
-//     fn parse_comments() {
-//         let input = r#"
-//         # Comment
-//         print(10)
-// "#;
-//
-//         let tokens = Lexer::parse(input);
-//         for token in tokens {
-//             println!("{:?}", token);
-//         }
-//     }
+
+    #[test]
+    fn parse_for() {
+        let input = r#"
+        for x in 1 to 10 do
+        end
+        "#;
+
+        let actual = Lexer::parse(input).unwrap();
+        for token in actual {
+            println!("{:?}", token);
+        }
+    }
 }

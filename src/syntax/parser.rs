@@ -1,7 +1,7 @@
 use crate::syntax::lexer::Lexer;
 use crate::syntax::token::{Token, TokenType, Keyword};
 use crate::syntax::rule::{Precedence, get_prefix_rule, get_precedence, get_infix_rule};
-use crate::syntax::expr::{Expr, ExprKind, BlockExpr, LiteralExpr, Variable, VarSetExpr, VarGetExpr, VarAssignExpr, IfExpr, IfElseExpr, FunctionDeclaration, FunctionExpr, ReturnExpr, ForExpr, ImportExpr};
+use crate::syntax::expr::{Expr, ExprKind, BlockExpr, LiteralExpr, Variable, VarSetExpr, VarGetExpr, VarAssignExpr, IfExpr, IfElseExpr, FunctionDeclaration, FunctionExpr, ReturnExpr, ForExpr, ImportExpr, WhileExpr};
 use crate::syntax::morpher::morph;
 use std::fmt;
 use std::fmt::Display;
@@ -81,9 +81,11 @@ impl<'a> EvalParser<'a> {
             TokenType::Keyword(Keyword::Import) => self.parse_import(),
             TokenType::Keyword(Keyword::Print) => self.parse_print(),
             TokenType::Keyword(Keyword::Def) => self.declare_def(),
-            TokenType::Keyword(Keyword::Var) => self.declare_var(),
+            TokenType::Keyword(Keyword::Var) => self.declare_var(true),
+            TokenType::Keyword(Keyword::Val) => self.declare_var(false),
             TokenType::Keyword(Keyword::Do) => self.parse_do(),
             TokenType::Keyword(Keyword::If) => self.parse_if(),
+            TokenType::Keyword(Keyword::While) => self.parse_while(),
             TokenType::Keyword(Keyword::For) => self.parse_for(),
             TokenType::Keyword(Keyword::Return) => self.parse_return(),
             _ => self.parse_expression()
@@ -163,6 +165,10 @@ impl<'a> EvalParser<'a> {
         while !self.match_(TokenType::RightParen)? &&
             !self.match_(TokenType::EOF)? {
             let param = self.expect(TokenType::Identifier)?;
+            self.expect(TokenType::Colon)?;
+            let param_type = self.expect(TokenType::Identifier)?;
+
+            // TODO Pass type
             parameters.push(Variable::new(param.source.to_string()));
 
             if self.match_(TokenType::Comma)? {
@@ -173,6 +179,13 @@ impl<'a> EvalParser<'a> {
         }
 
         self.expect(TokenType::RightParen)?;
+
+        // TODO Check if fun has return type
+        self.expect(TokenType::Minus);
+        self.expect(TokenType::GreaterThan);
+
+        let return_type = self.expect(TokenType::Identifier)?;
+
         self.expect(TokenType::Line)?;
 
         let body = self.parse_block()?.node.block().unwrap(); // TODO Unwrap
@@ -189,7 +202,7 @@ impl<'a> EvalParser<'a> {
         )))
     }
 
-    fn declare_var(&mut self) -> Result<Expr> {
+    fn declare_var(&mut self, mutable: bool) -> Result<Expr> {
         self.expect(TokenType::Keyword(Keyword::Var));
 
         let identifier = self.expect(TokenType::Identifier);
@@ -202,7 +215,7 @@ impl<'a> EvalParser<'a> {
             // Pop '=' operator
             self.consume()?;
 
-            initializer = self.parse_expression()?;
+            initializer = self.parse_top_level_expression()?;
         }
 
         Ok(Expr::new(ExprKind::VarAssign(VarAssignExpr::new(var, initializer))))
@@ -238,7 +251,10 @@ impl<'a> EvalParser<'a> {
         let cond = self.parse_expression()?;
 
         self.expect(TokenType::Keyword(Keyword::Then))?;
-        self.expect(TokenType::Line)?;
+
+        if self.match_(TokenType::Line)? {
+            self.expect(TokenType::Line)?;
+        }
 
         let mut then = vec![];
         while !self.match_(TokenType::Keyword(Keyword::End))? &&
@@ -263,8 +279,44 @@ impl<'a> EvalParser<'a> {
         Ok(Expr::new(expr_kind))
     }
 
+    fn parse_while(&mut self) -> Result<Expr> {
+        println!("Parse while");
+        self.expect(TokenType::Keyword(Keyword::While))?;
+        let cond = self.parse_expression()?;
+
+        let body = self.parse_do()?;
+
+        Ok(Expr::new(ExprKind::While(WhileExpr::new(cond, body))))
+    }
+
     fn parse_for(&mut self) -> Result<Expr> {
+        println!("Parse for");
+        // for x in 1 to 4 do
         self.expect(TokenType::Keyword(Keyword::For))?;
+        
+        // Initializer
+        let x = self.expect(TokenType::Identifier)?;
+        self.expect(TokenType::Keyword(Keyword::In))?;
+        let x_val = 1;
+        self.consume()?;
+
+        // Condition
+        let max_val = 4;
+        self.expect(TokenType::Keyword(Keyword::To))?;
+        self.consume()?;
+        
+        println!("{:?}", x);
+
+        // Increment
+        let step = 1;
+
+        self.expect(TokenType::Keyword(Keyword::Do))?;
+        self.expect(TokenType::Line)?;
+
+        // Parse body
+
+        self.expect(TokenType::Keyword(Keyword::End))?;
+
 
         Ok(Expr::new(ExprKind::For(ForExpr::new())))
     }
@@ -272,7 +324,7 @@ impl<'a> EvalParser<'a> {
     fn parse_return(&mut self) -> Result<Expr> {
         self.expect(TokenType::Keyword(Keyword::Return))?;
 
-        let return_expr = if !self.match_(TokenType::Line)? {
+        let return_expr = if self.match_(TokenType::Line)? {
             None
         } else {
             Some(self.parse_top_level_expression()?)
@@ -385,6 +437,29 @@ mod test {
         import foo.bar
         import util
         import ..bar.foo
+        "#;
+
+        let exprs = EvalParser::parse(input);
+        println!("{:?}", exprs);
+    }
+
+    #[test]
+    fn parse_def() {
+        let input = r#"
+        def double(x: Int) -> Int
+            return x * 2
+        end
+        "#;
+
+        let exprs = EvalParser::parse(input);
+        println!("{:?}", exprs);
+    }
+
+    #[test]
+    fn parse_for() {
+        let input = r#"
+        for x in 1 to 5 do
+        end
         "#;
 
         let exprs = EvalParser::parse(input);

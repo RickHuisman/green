@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use crate::compiler::object::{Object, EvalClosure};
 use crate::vm::callframe::CallFrame;
 use crate::compiler::compiler::Compiler;
-use crate::syntax::parser::{EvalParser, ParserError, ModuleAst};
+use crate::syntax::parser::{EvalParser, ModuleAst};
 
 pub struct VM {
     stack: Vec<Value>,
@@ -60,6 +60,7 @@ impl VM {
                 Opcode::Nil => self.nil(),
                 Opcode::Call => self.call_instruction(),
                 Opcode::Closure => self.closure(),
+                Opcode::Loop => self.loop_(),
             }
         }
     }
@@ -141,7 +142,7 @@ impl VM {
     fn get_global(&mut self) {
         let name = value_to_string(self.read_constant());
         let value = self.globals.get(&name).cloned();
-        self.push(value.unwrap()); // TODO Unwrap???
+        self.push(value.unwrap());
     }
 
     fn set_global(&mut self) {
@@ -251,6 +252,11 @@ impl VM {
             }
             _ => panic!("Can only call functions"),
         }
+    }
+
+    fn loop_(&mut self) {
+        let offset = self.read_short();
+        *self.frame_mut().ip_mut() -= offset as usize;
     }
 
     fn read_constant(&mut self) -> Value {

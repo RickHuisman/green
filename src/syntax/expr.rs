@@ -1,5 +1,4 @@
 use crate::syntax::token::TokenType;
-use std::fmt::Display;
 
 #[derive(PartialEq, Debug)]
 pub struct Expr {
@@ -37,6 +36,7 @@ pub enum ExprKind {
     Function(FunctionExpr),
     Call(CallExpr),
     For(ForExpr),
+    While(WhileExpr),
     Return(ReturnExpr),
 }
 
@@ -251,11 +251,28 @@ impl FunctionExpr {
 }
 
 #[derive(PartialEq, Debug)]
-pub struct ForExpr {}
+pub struct ForExpr {
+    // TODO var decl
+    pub condition: Expr,
+    pub increment: Expr,
+    pub body: Expr,
+}
 
 impl ForExpr {
-    pub fn new() -> Self {
-        ForExpr {}
+    pub fn new(condition: Expr, increment: Expr, body: Expr) -> Self {
+        ForExpr { condition, increment, body }
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct WhileExpr {
+    pub condition: Expr,
+    pub body: Expr,
+}
+
+impl WhileExpr {
+    pub fn new(condition: Expr, body: Expr) -> Self {
+        WhileExpr { condition, body }
     }
 }
 

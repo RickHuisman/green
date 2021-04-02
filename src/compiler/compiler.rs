@@ -1,13 +1,16 @@
-use crate::syntax::expr::{Expr, ExprKind, LiteralExpr, BinaryExpr, BinaryOperator, UnaryExpr, UnaryOperator, BlockExpr, GroupingExpr, VarSetExpr, VarGetExpr, VarAssignExpr, IfExpr, IfElseExpr, Variable, FunctionExpr, CallExpr, ReturnExpr, ImportExpr};
-use crate::compiler::opcode::Opcode;
-use crate::compiler::value::Value;
 use crate::compiler::chunk::Chunk;
-use crate::compiler::object::{Object, EvalFunction, EvalFunctionType};
+use crate::compiler::instance::CompilerInstance;
 use crate::compiler::local::Local;
 use crate::compiler::module_resolver::get_module_ast;
-use crate::compiler::instance::CompilerInstance;
+use crate::compiler::object::{EvalFunction, EvalFunctionType};
+use crate::compiler::opcode::Opcode;
+use crate::compiler::value::Value;
+use crate::syntax::expr::{
+    BinaryExpr, BinaryOperator, BlockExpr, CallExpr, Expr, ExprKind, ForExpr, FunctionExpr,
+    GroupingExpr, IfElseExpr, IfExpr, ImportExpr, LiteralExpr, ReturnExpr, UnaryExpr,
+    UnaryOperator, VarAssignExpr, VarGetExpr, VarSetExpr, Variable, WhileExpr,
+};
 use crate::syntax::parser::ModuleAst;
-use std::path::Path;
 
 pub struct Compiler {
     current: CompilerInstance,
@@ -15,7 +18,9 @@ pub struct Compiler {
 
 impl Compiler {
     fn new() -> Self {
-        Compiler { current: CompilerInstance::new(EvalFunctionType::Script) }
+        Compiler {
+            current: CompilerInstance::new(EvalFunctionType::Script),
+        }
     }
 
     pub fn compile_module(module: ModuleAst) -> EvalFunction {
@@ -45,7 +50,8 @@ impl Compiler {
             ExprKind::Function(function) => self.compile_function(function),
             ExprKind::Call(call) => self.compile_call(call),
             ExprKind::Return(ret_expr) => self.compile_return(ret_expr),
-            ExprKind::For(_) => todo!(),
+            ExprKind::For(for_expr) => self.compile_for(for_expr),
+            ExprKind::While(while_expr) => self.compile_while(while_expr),
         }
     }
 
@@ -152,9 +158,9 @@ impl Compiler {
         }
 
         self.emit(Opcode::DefineGlobal);
-        let constant_id = self.current_chunk().add_constant(
-            Value::string(var.name.clone())
-        );
+        let constant_id = self
+            .current_chunk()
+            .add_constant(Value::string(var.name.clone()));
         self.emit_byte(constant_id);
     }
 
@@ -261,9 +267,7 @@ impl Compiler {
 
         self.emit(Opcode::Closure);
 
-        let constant_id = self.current_chunk().add_constant(
-            Value::function(function)
-        );
+        let constant_id = self.current_chunk().add_constant(Value::function(function));
 
         self.emit_byte(constant_id);
 
@@ -300,6 +304,45 @@ impl Compiler {
         }
     }
 
+    fn compile_for(&mut self, for_expr: &ForExpr) {
+        self.begin_scope();
+
+        let variable = Variable::new("x".to_string());
+        self.compile_define_var(&variable);
+
+        let loop_start = self.current_chunk().code().len();
+
+        let exit_jump = -1;
+        
+        self.end_scope();
+    }
+
+    fn compile_while(&mut self, while_expr: &WhileExpr) {
+        let loop_start = self.current_chunk().code().len();
+        self.compile_expr(&while_expr.condition);
+
+        let exit_jump = self.emit_jump(Opcode::JumpIfFalse);
+        self.emit(Opcode::Pop);
+        self.compile_expr(&while_expr.body);
+
+        self.emit_loop(loop_start);
+        self.patch_jump(exit_jump);
+        self.emit(Opcode::Pop);
+    }
+
+    fn emit_loop(&mut self, loop_start: usize) {
+        self.emit(Opcode::Loop);
+
+        let chunk = self.current_chunk();
+        let sub = chunk.code().len() - loop_start + 2;
+
+        let lo = ((sub >> 8) & 0xff) as u8;
+        let hi = (sub & 0xff) as u8;
+
+        self.emit_byte(lo);
+        self.emit_byte(hi);
+    }
+
     fn emit_jump(&mut self, instruction: Opcode) -> usize {
         self.emit(instruction);
         self.emit_byte(0xff);
@@ -321,7 +364,7 @@ impl Compiler {
             LiteralExpr::String(s) => self.emit_string(&s),
             LiteralExpr::True => self.emit_constant(Value::True),
             LiteralExpr::False => self.emit_constant(Value::False),
-            _ => todo!() // TODO NilLiteral
+            _ => todo!(), // TODO NilLiteral
         }
     }
 
@@ -329,7 +372,10 @@ impl Compiler {
         for (i, local) in self.current.locals().iter().enumerate() {
             if *name == *local.name() {
                 if *local.depth() == -1 {
-                    panic!("Can't read local variable {} in it's own initializer.", name);
+                    panic!(
+                        "Can't read local variable {} in it's own initializer.",
+                        name
+                    );
                 }
 
                 return i as isize;
@@ -359,8 +405,10 @@ impl Compiler {
     fn end_scope(&mut self) {
         *self.current.scope_depth_mut() -= 1;
 
-        while self.current.locals().len() > 0 &&
-            self.current.locals()[self.current.locals().len() - 1].depth() > self.current.scope_depth() {
+        while self.current.locals().len() > 0
+            && self.current.locals()[self.current.locals().len() - 1].depth()
+                > self.current.scope_depth()
+        {
             self.emit(Opcode::Pop);
             self.current.locals_mut().pop();
         }
@@ -404,5 +452,25 @@ impl Compiler {
 
     fn emit_byte(&mut self, byte: u8) {
         self.current_chunk().write_byte(byte);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::syntax::parser::EvalParser;
+
+    fn parse_source(str: &str) -> ModuleAst {
+        EvalParser::parse(str).unwrap()
+    }
+
+    #[test]
+    fn compile_for() {
+        let input = r#"
+        for x in 1 to 5 do
+        end
+        "#;
+        let module = parse_source(input);
+        let chunk = Compiler::compile_module(module);
     }
 }

@@ -109,7 +109,8 @@ fn disassemble_instruction(f: &mut Formatter<'_>, chunk: &Chunk, offset: &mut us
             writeln!(f, "'{}'", chunk.constants()[constant as usize]);
 
             *offset
-        }
+        },
+        Opcode::Loop => jump_instruction(chunk, f, "OP_LOOP", 0, offset) // TODO sign should be -1
     }
 }
 

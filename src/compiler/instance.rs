@@ -1,4 +1,4 @@
-use crate::compiler::object::{EvalFunction, EvalFunctionType, EvalClosure};
+use crate::compiler::object::{EvalFunction, EvalFunctionType};
 use crate::compiler::local::Local;
 
 #[derive(Debug, Clone)]

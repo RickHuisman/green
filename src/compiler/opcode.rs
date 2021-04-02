@@ -23,6 +23,7 @@ pub enum Opcode {
     Nil,
     Call,
     Closure,
+    Loop,
 }
 
 impl From<u8> for Opcode {
@@ -51,6 +52,7 @@ impl From<u8> for Opcode {
             0x14 => Opcode::Nil,
             0x15 => Opcode::Call,
             0x16 => Opcode::Closure,
+            0x17 => Opcode::Loop,
             _ => panic!("No opcode for byte: {}", byte),
         }
     }
