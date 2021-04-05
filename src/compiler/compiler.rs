@@ -52,6 +52,7 @@ impl Compiler {
             ExprKind::Return(ret_expr) => self.compile_return(ret_expr),
             ExprKind::For(for_expr) => self.compile_for(for_expr),
             ExprKind::While(while_expr) => self.compile_while(while_expr),
+            ExprKind::Sequence(sequence_expr) => self.compile_sequence(sequence_expr),
         }
     }
 
@@ -328,6 +329,12 @@ impl Compiler {
         self.emit_loop(loop_start);
         self.patch_jump(exit_jump);
         self.emit(Opcode::Pop);
+    }
+
+    fn compile_sequence(&mut self, sequence_expr: &Vec<Expr>) {
+        for expr in sequence_expr {
+            self.compile_expr(expr);
+        }
     }
 
     fn emit_loop(&mut self, loop_start: usize) {

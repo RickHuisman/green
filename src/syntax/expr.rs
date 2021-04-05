@@ -17,10 +17,15 @@ impl Expr {
     pub fn return_(return_expr: ReturnExpr) -> Expr {
         Expr::new(ExprKind::Return(return_expr))
     }
+
+    pub fn while_(while_expr: WhileExpr) -> Expr {
+        Expr::new(ExprKind::While(while_expr))
+    }
 }
 
 #[derive(PartialEq, Debug)]
 pub enum ExprKind {
+    Sequence(Vec<Expr>),
     Import(ImportExpr),
     Literal(LiteralExpr),
     Binary(BinaryExpr),
@@ -252,15 +257,15 @@ impl FunctionExpr {
 
 #[derive(PartialEq, Debug)]
 pub struct ForExpr {
-    // TODO var decl
+    pub var_decl: Expr,
     pub condition: Expr,
     pub increment: Expr,
     pub body: Expr,
 }
 
 impl ForExpr {
-    pub fn new(condition: Expr, increment: Expr, body: Expr) -> Self {
-        ForExpr { condition, increment, body }
+    pub fn new(var_decl: Expr, condition: Expr, increment: Expr, body: Expr) -> Self {
+        ForExpr { var_decl, condition, increment, body }
     }
 }
 
