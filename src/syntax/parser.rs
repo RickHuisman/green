@@ -314,6 +314,14 @@ impl<'a> EvalParser<'a> {
 
         let max_val = self.expect(TokenType::Number)?;
 
+        let step_incr = if self.match_(TokenType::Keyword(Keyword::Step))? {
+            self.consume()?;
+
+            self.expect(TokenType::Number)?.source.parse::<f64>().unwrap()
+        } else {
+            1.0
+        };
+
         let var_decl = Expr::new(ExprKind::VarAssign(
             VarAssignExpr::new(
                     Variable::new(var_ident.source.to_string()),
@@ -349,7 +357,7 @@ impl<'a> EvalParser<'a> {
                 Expr::new(ExprKind::VarGet(VarGetExpr::new(
                     Variable::new(var_ident.source.to_string())
                 ))),
-                Expr::new(ExprKind::Literal(LiteralExpr::Number(1.0))),
+                Expr::new(ExprKind::Literal(LiteralExpr::Number(step_incr))),
                 incr_op,
             )))
         );
