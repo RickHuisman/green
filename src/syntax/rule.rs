@@ -1,7 +1,11 @@
-use crate::syntax::token::{TokenType, Token, Keyword};
-use crate::syntax::parser::{EvalParser, ParserError};
+use crate::error::ParserError;
+use crate::syntax::expr::{
+    BinaryExpr, BinaryOperator, CallExpr, Expr, ExprKind, GroupingExpr, LiteralExpr, UnaryExpr,
+    UnaryOperator,
+};
+use crate::syntax::parser::EvalParser;
+use crate::syntax::token::{Keyword, Token, TokenType};
 use std::collections::HashMap;
-use crate::syntax::expr::{Expr, LiteralExpr, ExprKind, BinaryExpr, BinaryOperator, GroupingExpr, CallExpr, UnaryOperator, UnaryExpr};
 
 type Result<T> = std::result::Result<T, ParserError>;
 
@@ -43,8 +47,7 @@ pub fn get_prefix_rule(token_type: &TokenType) -> Option<Box<dyn PrefixParser>> 
             } else {
                 if let Some(token_type) = map4.get(token_type) {
                     Some(Box::new(*token_type))
-                }
-                else {
+                } else {
                     println!("No rule for token type: {:?}", token_type);
                     None
                 }
@@ -58,15 +61,39 @@ pub fn get_infix_rule(token_type: &TokenType) -> Option<Box<dyn InfixParser>> {
     map.insert(TokenType::Plus, InfixOperatorParser::new(Precedence::Term));
     map.insert(TokenType::Minus, InfixOperatorParser::new(Precedence::Term));
 
-    map.insert(TokenType::Star, InfixOperatorParser::new(Precedence::Factor));
-    map.insert(TokenType::Slash, InfixOperatorParser::new(Precedence::Factor));
+    map.insert(
+        TokenType::Star,
+        InfixOperatorParser::new(Precedence::Factor),
+    );
+    map.insert(
+        TokenType::Slash,
+        InfixOperatorParser::new(Precedence::Factor),
+    );
 
-    map.insert(TokenType::EqualEqual, InfixOperatorParser::new(Precedence::Equality));
-    map.insert(TokenType::BangEqual, InfixOperatorParser::new(Precedence::Equality));
-    map.insert(TokenType::GreaterThan, InfixOperatorParser::new(Precedence::Comparison));
-    map.insert(TokenType::GreaterThanEqual, InfixOperatorParser::new(Precedence::Comparison));
-    map.insert(TokenType::LessThan, InfixOperatorParser::new(Precedence::Comparison));
-    map.insert(TokenType::LessThanEqual, InfixOperatorParser::new(Precedence::Comparison));
+    map.insert(
+        TokenType::EqualEqual,
+        InfixOperatorParser::new(Precedence::Equality),
+    );
+    map.insert(
+        TokenType::BangEqual,
+        InfixOperatorParser::new(Precedence::Equality),
+    );
+    map.insert(
+        TokenType::GreaterThan,
+        InfixOperatorParser::new(Precedence::Comparison),
+    );
+    map.insert(
+        TokenType::GreaterThanEqual,
+        InfixOperatorParser::new(Precedence::Comparison),
+    );
+    map.insert(
+        TokenType::LessThan,
+        InfixOperatorParser::new(Precedence::Comparison),
+    );
+    map.insert(
+        TokenType::LessThanEqual,
+        InfixOperatorParser::new(Precedence::Comparison),
+    );
 
     let mut map2 = HashMap::new();
     map2.insert(TokenType::LeftParen, CallParser::new());
@@ -108,7 +135,7 @@ pub enum Precedence {
     Factor = 7,
     // * /
     Unary = 8, // ! -
-    Call = 9, // x()
+    Call = 9,  // x()
 }
 
 #[derive(Copy, Clone)]
@@ -117,9 +144,7 @@ struct LiteralParser;
 impl PrefixParser for LiteralParser {
     fn parse<'a>(&self, parser: &mut EvalParser, token: Token<'a>) -> Result<Expr> {
         let op = match token.token_type {
-            TokenType::Number => {
-                LiteralExpr::Number(token.source.parse::<f64>().unwrap())
-            }
+            TokenType::Number => LiteralExpr::Number(token.source.parse::<f64>().unwrap()),
             TokenType::String => LiteralExpr::String(token.source.to_string()), // TODO
             TokenType::Keyword(Keyword::True) => LiteralExpr::True,
             TokenType::Keyword(Keyword::False) => LiteralExpr::False,
@@ -165,11 +190,7 @@ impl InfixParser for InfixOperatorParser {
         // Assume left associativity.
         let right = parser.parse_precedence(self.precedence)?;
 
-        let binary = BinaryExpr::new(
-            left,
-            right,
-            BinaryOperator::from_token(token.token_type),
-        );
+        let binary = BinaryExpr::new(left, right, BinaryOperator::from_token(token.token_type).unwrap());
 
         Ok(Expr::new(ExprKind::Binary(binary)))
     }
@@ -183,14 +204,15 @@ impl InfixParser for InfixOperatorParser {
 struct CallParser;
 
 impl CallParser {
-    pub fn new() -> Self { CallParser {} }
+    pub fn new() -> Self {
+        CallParser {}
+    }
 }
 
 impl InfixParser for CallParser {
     fn parse<'a>(&self, parser: &mut EvalParser, left: Expr, token: Token<'a>) -> Result<Expr> {
         let mut args = vec![];
         if !parser.match_(TokenType::RightParen)? {
-
             args.push(parser.parse_expression()?);
             while parser.match_(TokenType::Comma)? {
                 parser.consume()?;
@@ -199,9 +221,7 @@ impl InfixParser for CallParser {
         }
         parser.expect(TokenType::RightParen)?;
 
-        Ok(Expr::new(ExprKind::Call(
-            CallExpr::new(left, args)
-        )))
+        Ok(Expr::new(ExprKind::Call(CallExpr::new(left, args))))
     }
 
     fn get_precedence(&self) -> Precedence {
@@ -213,7 +233,9 @@ impl InfixParser for CallParser {
 struct UnaryParser;
 
 impl UnaryParser {
-    pub fn new() -> Self { UnaryParser {} }
+    pub fn new() -> Self {
+        UnaryParser {}
+    }
 }
 
 impl PrefixParser for UnaryParser {
@@ -228,8 +250,6 @@ impl PrefixParser for UnaryParser {
             _ => panic!("TODO"), // TODO
         };
 
-        Ok(Expr::new(ExprKind::Unary(
-            UnaryExpr::new(expr, op)
-        )))
+        Ok(Expr::new(ExprKind::Unary(UnaryExpr::new(expr, op))))
     }
 }

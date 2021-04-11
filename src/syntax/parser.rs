@@ -1,16 +1,21 @@
+use crate::error::ParserError;
+use crate::syntax::expr::ExprKind::Binary;
+use crate::syntax::expr::{
+    BinaryExpr, BinaryOperator, BlockExpr, Expr, ExprKind, FunctionDeclaration, FunctionExpr,
+    IfElseExpr, IfExpr, ImportExpr, LiteralExpr, PrintExpr, ReturnExpr, SequenceExpr,
+    VarAssignExpr, VarGetExpr, VarSetExpr, Variable, WhileExpr,
+};
 use crate::syntax::lexer::Lexer;
-use crate::syntax::token::{Token, TokenType, Keyword};
-use crate::syntax::rule::{Precedence, get_prefix_rule, get_precedence, get_infix_rule};
-use crate::syntax::expr::{Expr, ExprKind, BlockExpr, LiteralExpr, Variable, VarSetExpr, VarGetExpr, VarAssignExpr, IfExpr, IfElseExpr, FunctionDeclaration, FunctionExpr, ReturnExpr, ForExpr, ImportExpr, WhileExpr, BinaryExpr, BinaryOperator};
 use crate::syntax::morpher::morph;
+use crate::syntax::parser::ParserError::UnexpectedToken;
+use crate::syntax::rule::{get_infix_rule, get_precedence, get_prefix_rule, Precedence};
+use crate::syntax::token::{Keyword, Token, TokenType};
 use std::fmt;
 use std::fmt::Display;
-use crate::syntax::parser::ParserError::UnexpectedToken;
-use crate::syntax::expr::ExprKind::Binary;
 
 #[derive(Debug)]
 pub struct ModuleAst {
-    exprs: Vec<Expr>
+    exprs: Vec<Expr>,
 }
 
 impl ModuleAst {
@@ -23,28 +28,10 @@ impl ModuleAst {
     }
 }
 
-#[derive(Debug)]
-pub enum ParserError {
-    UnexpectedToken(TokenType),
-    Expect(TokenType, TokenType),
-    UnexpectedEOF,
-}
-
-impl Display for ParserError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ParserError::UnexpectedToken(unexpected) => write!(f, "Unexpected token {:?}", unexpected),
-            ParserError::Expect(expected, actual) =>
-                write!(f, "Expected {:?}, got {:?}", expected, actual),
-            ParserError::UnexpectedEOF => write!(f, "Unexpected EOF"),
-        }
-    }
-}
-
 type Result<T> = std::result::Result<T, ParserError>;
 
 pub struct EvalParser<'a> {
-    tokens: Vec<Token<'a>>
+    tokens: Vec<Token<'a>>,
 }
 
 impl<'a> EvalParser<'a> {
@@ -89,7 +76,7 @@ impl<'a> EvalParser<'a> {
             TokenType::Keyword(Keyword::While) => self.parse_while(),
             TokenType::Keyword(Keyword::For) => self.parse_for(),
             TokenType::Keyword(Keyword::Return) => self.parse_return(),
-            _ => self.parse_expression()
+            _ => self.parse_expression(),
         }
     }
 
@@ -140,19 +127,19 @@ impl<'a> EvalParser<'a> {
     fn parse_import(&mut self) -> Result<Expr> {
         self.expect(TokenType::Keyword(Keyword::Import))?;
 
-        // Consume tokens till end of line, this is the path of the module.
+        // Consume tokens till end of line; this is the path of the module.
         let mut module_path = String::new();
         while !self.match_(TokenType::Line)? {
             module_path.push_str(self.consume()?.source);
         }
 
         let import_expr = ImportExpr::new(module_path.to_string());
-        Ok(Expr::new(ExprKind::Import(import_expr)))
+        Ok(Expr::import(import_expr))
     }
 
     fn parse_print(&mut self) -> Result<Expr> {
         self.expect(TokenType::Keyword(Keyword::Print))?;
-        Ok(Expr::new(ExprKind::Print(self.parse_expression()?)))
+        Ok(Expr::print(PrintExpr::new(self.parse_expression()?)))
     }
 
     fn declare_def(&mut self) -> Result<Expr> {
@@ -163,8 +150,7 @@ impl<'a> EvalParser<'a> {
         self.expect(TokenType::LeftParen)?;
 
         let mut parameters = vec![];
-        while !self.match_(TokenType::RightParen)? &&
-            !self.match_(TokenType::EOF)? {
+        while !self.match_(TokenType::RightParen)? && !self.match_(TokenType::EOF)? {
             let param = self.expect(TokenType::Identifier)?;
             self.expect(TokenType::Colon)?;
             let param_type = self.expect(TokenType::Identifier)?;
@@ -191,16 +177,12 @@ impl<'a> EvalParser<'a> {
 
         let body = self.parse_block()?.node.block().unwrap(); // TODO Unwrap
 
-        let fun_decl = FunctionDeclaration::new(
-            parameters, body,
-        );
+        let fun_decl = FunctionDeclaration::new(parameters, body);
 
-        Ok(Expr::new(ExprKind::Function(
-            FunctionExpr::new(
-                Variable::new(identifier.source.to_string()),
-                fun_decl,
-            )
-        )))
+        Ok(Expr::new(ExprKind::Function(FunctionExpr::new(
+            Variable::new(identifier.source.to_string()),
+            fun_decl,
+        ))))
     }
 
     fn declare_var(&mut self, mutable: bool) -> Result<Expr> {
@@ -219,7 +201,10 @@ impl<'a> EvalParser<'a> {
             initializer = self.parse_top_level_expression()?;
         }
 
-        Ok(Expr::new(ExprKind::VarAssign(VarAssignExpr::new(var, initializer))))
+        Ok(Expr::new(ExprKind::VarAssign(VarAssignExpr::new(
+            var,
+            initializer,
+        ))))
     }
 
     pub fn parse_var(&mut self, identifier: Token) -> Result<Expr> {
@@ -254,12 +239,13 @@ impl<'a> EvalParser<'a> {
         self.expect(TokenType::Keyword(Keyword::Then))?;
 
         if self.match_(TokenType::Line)? {
-            self.expect(TokenType::Line)?;
+            self.consume()?;
         }
 
         let mut then = vec![];
-        while !self.match_(TokenType::Keyword(Keyword::End))? &&
-            !self.match_(TokenType::Keyword(Keyword::Else))? {
+        while !self.match_(TokenType::Keyword(Keyword::End))?
+            && !self.match_(TokenType::Keyword(Keyword::Else))?
+        {
             then.push(self.parse_top_level_expression()?);
             self.expect(TokenType::Line)?;
         }
@@ -274,14 +260,13 @@ impl<'a> EvalParser<'a> {
             ExprKind::IfElse(IfElseExpr::new(cond, BlockExpr::new(then), else_clause))
         } else {
             self.expect(TokenType::Keyword(Keyword::End));
-            ExprKind::If(IfExpr::new(cond, then))
+            ExprKind::If(IfExpr::new(cond, Expr::sequence(SequenceExpr::new(then))))
         };
 
         Ok(Expr::new(expr_kind))
     }
 
     fn parse_while(&mut self) -> Result<Expr> {
-        println!("Parse while");
         self.expect(TokenType::Keyword(Keyword::While))?;
         let cond = self.parse_expression()?;
 
@@ -295,7 +280,7 @@ impl<'a> EvalParser<'a> {
 
     fn parse_for(&mut self) -> Result<Expr> {
         self.expect(TokenType::Keyword(Keyword::For))?;
-        
+
         // Initializer
         let var_ident = self.expect(TokenType::Identifier)?;
 
@@ -317,31 +302,30 @@ impl<'a> EvalParser<'a> {
         let step_incr = if self.match_(TokenType::Keyword(Keyword::Step))? {
             self.consume()?;
 
-            self.expect(TokenType::Number)?.source.parse::<f64>().unwrap()
+            self.expect(TokenType::Number)?
+                .source
+                .parse::<f64>()
+                .unwrap()
         } else {
             1.0
         };
 
-        let var_decl = Expr::new(ExprKind::VarAssign(
-            VarAssignExpr::new(
-                    Variable::new(var_ident.source.to_string()),
-                    Expr::new(ExprKind::Literal(LiteralExpr::Number(
-                        x_init.source.parse::<f64>().unwrap()
-                    )))
-                )
-            )
-        );
+        let var_decl = Expr::new(ExprKind::VarAssign(VarAssignExpr::new(
+            Variable::new(var_ident.source.to_string()),
+            Expr::new(ExprKind::Literal(LiteralExpr::Number(
+                x_init.source.parse::<f64>().unwrap(),
+            ))),
+        )));
         sequence.push(var_decl);
 
-        let condition = Expr::new(ExprKind::Binary(
-            BinaryExpr::new(
-                Expr::new(ExprKind::VarGet(VarGetExpr::new(
-                    Variable::new(var_ident.source.to_string())
-                ))),
-                Expr::new(ExprKind::Literal(LiteralExpr::Number(
-                    max_val.source.parse::<f64>().unwrap()
-                ))),
-                op,
+        let condition = Expr::new(ExprKind::Binary(BinaryExpr::new(
+            Expr::new(ExprKind::VarGet(VarGetExpr::new(Variable::new(
+                var_ident.source.to_string(),
+            )))),
+            Expr::new(ExprKind::Literal(LiteralExpr::Number(
+                max_val.source.parse::<f64>().unwrap(),
+            ))),
+            op,
         )));
 
         // Parse body
@@ -354,12 +338,12 @@ impl<'a> EvalParser<'a> {
         let incr_expr = VarSetExpr::new(
             Variable::new(var_ident.source.to_string()),
             Expr::new(ExprKind::Binary(BinaryExpr::new(
-                Expr::new(ExprKind::VarGet(VarGetExpr::new(
-                    Variable::new(var_ident.source.to_string())
-                ))),
+                Expr::new(ExprKind::VarGet(VarGetExpr::new(Variable::new(
+                    var_ident.source.to_string(),
+                )))),
                 Expr::new(ExprKind::Literal(LiteralExpr::Number(step_incr))),
                 incr_op,
-            )))
+            ))),
         );
 
         let test_body = self.parse_do()?;
@@ -367,12 +351,12 @@ impl<'a> EvalParser<'a> {
         foo.push(test_body);
         foo.push(Expr::new(ExprKind::VarSet(incr_expr)));
 
-        let body = Expr::new(ExprKind::Sequence(foo));
+        let body = Expr::new(ExprKind::Sequence(SequenceExpr::new(foo)));
 
         let while_expr = Expr::while_(WhileExpr::new(condition, body));
         sequence.push(while_expr);
 
-        Ok(Expr::new(ExprKind::Sequence(sequence)))
+        Ok(Expr::new(ExprKind::Sequence(SequenceExpr::new(sequence))))
     }
 
     fn parse_return(&mut self) -> Result<Expr> {

@@ -1,3 +1,5 @@
+use crate::syntax::expr::{BinaryOperator, UnaryOperator};
+
 #[repr(u8)]
 pub enum Opcode {
     Return,
@@ -54,6 +56,15 @@ impl From<u8> for Opcode {
             0x16 => Opcode::Closure,
             0x17 => Opcode::Loop,
             _ => panic!("No opcode for byte: {}", byte),
+        }
+    }
+}
+
+impl From<UnaryOperator> for Opcode {
+    fn from(op: UnaryOperator) -> Self {
+        match op {
+            UnaryOperator::Negate => Opcode::Negate,
+            UnaryOperator::Not => Opcode::Not,
         }
     }
 }

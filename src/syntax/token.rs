@@ -9,7 +9,11 @@ pub struct Token<'a> {
 
 impl<'a> Token<'a> {
     pub fn new(token_type: TokenType, source: &'a str, position: Position) -> Token<'a> {
-        Token { token_type, source, position }
+        Token {
+            token_type,
+            source,
+            position,
+        }
     }
 }
 
@@ -88,6 +92,7 @@ pub enum Keyword {
     True,
     False,
     Return,
+    Struct,
 }
 
 impl FromStr for Keyword {
@@ -114,6 +119,7 @@ impl FromStr for Keyword {
             "true" => Ok(Keyword::True),
             "false" => Ok(Keyword::False),
             "return" => Ok(Keyword::Return),
+            "struct" => Ok(Keyword::Struct),
             _ => Err(()),
         }
     }

@@ -1,6 +1,6 @@
-use std::path::Path;
-use crate::syntax::parser::{ModuleAst, EvalParser};
+use crate::syntax::parser::{EvalParser, ModuleAst};
 use std::env::current_dir;
+use std::path::Path;
 
 #[derive(Debug)]
 pub enum ImportModuleError {

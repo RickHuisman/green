@@ -1,4 +1,14 @@
+use crate::compiler::compiler::Compiler;
+use crate::compiler::instance::CompilerInstance;
+use crate::compiler::module_resolver::get_module_ast;
+use crate::compiler::object::EvalFunctionType;
+use crate::compiler::opcode::Opcode;
+use crate::compiler::value::Value;
 use crate::syntax::token::TokenType;
+
+pub trait Compile {
+    fn compile(&self, compiler: &mut Compiler);
+}
 
 #[derive(PartialEq, Debug)]
 pub struct Expr {
@@ -7,25 +17,39 @@ pub struct Expr {
 
 impl Expr {
     pub fn new(node: ExprKind) -> Expr {
-        Expr { node: Box::new(node) }
+        Expr {
+            node: Box::new(node),
+        }
+    }
+
+    pub fn sequence(seq_expr: SequenceExpr) -> Expr {
+        Expr::new(ExprKind::Sequence(seq_expr))
+    }
+
+    pub fn import(import_expr: ImportExpr) -> Expr {
+        Expr::new(ExprKind::Import(import_expr))
     }
 
     pub fn block(block: BlockExpr) -> Expr {
         Expr::new(ExprKind::Block(block))
     }
 
-    pub fn return_(return_expr: ReturnExpr) -> Expr {
-        Expr::new(ExprKind::Return(return_expr))
+    pub fn print(print: PrintExpr) -> Expr {
+        Expr::new(ExprKind::Print(print))
     }
 
     pub fn while_(while_expr: WhileExpr) -> Expr {
         Expr::new(ExprKind::While(while_expr))
     }
+
+    pub fn return_(return_expr: ReturnExpr) -> Expr {
+        Expr::new(ExprKind::Return(return_expr))
+    }
 }
 
 #[derive(PartialEq, Debug)]
 pub enum ExprKind {
-    Sequence(Vec<Expr>),
+    Sequence(SequenceExpr),
     Import(ImportExpr),
     Literal(LiteralExpr),
     Binary(BinaryExpr),
@@ -34,15 +58,38 @@ pub enum ExprKind {
     VarAssign(VarAssignExpr),
     VarSet(VarSetExpr),
     VarGet(VarGetExpr),
-    Print(Expr),
+    Print(PrintExpr),
     Grouping(GroupingExpr),
     If(IfExpr),
     IfElse(IfElseExpr),
     Function(FunctionExpr),
     Call(CallExpr),
-    For(ForExpr),
     While(WhileExpr),
     Return(ReturnExpr),
+}
+
+impl Compile for ExprKind {
+    fn compile(&self, compiler: &mut Compiler) {
+        match self {
+            ExprKind::Sequence(s) => s.compile(compiler),
+            ExprKind::Import(i) => i.compile(compiler),
+            ExprKind::Literal(l) => l.compile(compiler),
+            ExprKind::Binary(b) => b.compile(compiler),
+            ExprKind::Unary(u) => u.compile(compiler),
+            ExprKind::Block(b) => b.compile(compiler),
+            ExprKind::VarAssign(v) => v.compile(compiler),
+            ExprKind::VarSet(v) => v.compile(compiler),
+            ExprKind::VarGet(v) => v.compile(compiler),
+            ExprKind::Print(p) => p.compile(compiler),
+            ExprKind::Grouping(g) => g.compile(compiler),
+            ExprKind::If(i) => i.compile(compiler),
+            ExprKind::IfElse(e) => e.compile(compiler),
+            ExprKind::Function(f) => f.compile(compiler),
+            ExprKind::Call(c) => c.compile(compiler),
+            ExprKind::While(w) => w.compile(compiler),
+            ExprKind::Return(r) => r.compile(compiler),
+        }
+    }
 }
 
 impl ExprKind {
@@ -50,6 +97,25 @@ impl ExprKind {
         match self {
             ExprKind::Block(block) => Some(block),
             _ => None,
+        }
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct SequenceExpr {
+    pub exprs: Vec<Expr>,
+}
+
+impl SequenceExpr {
+    pub fn new(exprs: Vec<Expr>) -> Self {
+        SequenceExpr { exprs }
+    }
+}
+
+impl Compile for SequenceExpr {
+    fn compile(&self, compiler: &mut Compiler) {
+        for expr in &self.exprs {
+            compiler.compile_expr(expr);
         }
     }
 }
@@ -65,6 +131,17 @@ impl ImportExpr {
     }
 }
 
+impl Compile for ImportExpr {
+    fn compile(&self, compiler: &mut Compiler) {
+        let module = get_module_ast(&self.module).unwrap();
+
+        // TODO Only compile top level expressions
+        for expr in module.exprs() {
+            compiler.compile_expr(expr);
+        }
+    }
+}
+
 #[derive(PartialEq, Debug)]
 pub enum LiteralExpr {
     Number(f64),
@@ -72,6 +149,18 @@ pub enum LiteralExpr {
     True,
     False,
     Nil, // TODO Nil???
+}
+
+impl Compile for LiteralExpr {
+    fn compile(&self, compiler: &mut Compiler) {
+        match self {
+            LiteralExpr::Number(n) => compiler.emit_constant(Value::Number(*n)),
+            LiteralExpr::String(s) => compiler.emit_string(&s),
+            LiteralExpr::True => compiler.emit_constant(Value::True),
+            LiteralExpr::False => compiler.emit_constant(Value::False),
+            _ => todo!(), // TODO NilLiteral
+        }
+    }
 }
 
 #[derive(PartialEq, Debug)]
@@ -84,6 +173,35 @@ pub struct BinaryExpr {
 impl BinaryExpr {
     pub fn new(lhs: Expr, rhs: Expr, operator: BinaryOperator) -> BinaryExpr {
         BinaryExpr { lhs, rhs, operator }
+    }
+}
+
+impl Compile for BinaryExpr {
+    fn compile(&self, compiler: &mut Compiler) {
+        compiler.compile_expr(&self.lhs);
+        compiler.compile_expr(&self.rhs);
+
+        match self.operator {
+            BinaryOperator::Add => compiler.emit(Opcode::Add),
+            BinaryOperator::Subtract => compiler.emit(Opcode::Subtract),
+            BinaryOperator::Multiply => compiler.emit(Opcode::Multiply),
+            BinaryOperator::Divide => compiler.emit(Opcode::Divide),
+            BinaryOperator::Equal => compiler.emit(Opcode::Equal),
+            BinaryOperator::BangEqual => {
+                compiler.emit(Opcode::Equal);
+                compiler.emit(Opcode::Not);
+            }
+            BinaryOperator::GreaterThan => compiler.emit(Opcode::Greater),
+            BinaryOperator::GreaterThanEqual => {
+                compiler.emit(Opcode::Less);
+                compiler.emit(Opcode::Not);
+            }
+            BinaryOperator::LessThan => compiler.emit(Opcode::Less),
+            BinaryOperator::LessThanEqual => {
+                compiler.emit(Opcode::Greater);
+                compiler.emit(Opcode::Not);
+            }
+        }
     }
 }
 
@@ -102,8 +220,8 @@ pub enum BinaryOperator {
 }
 
 impl BinaryOperator {
-    pub fn from_token(token_type: TokenType) -> BinaryOperator {
-        match token_type {
+    pub fn from_token(token_type: TokenType) -> Option<BinaryOperator> {
+        let op = match token_type {
             TokenType::Minus => BinaryOperator::Subtract,
             TokenType::Plus => BinaryOperator::Add,
             TokenType::Star => BinaryOperator::Multiply,
@@ -115,8 +233,10 @@ impl BinaryOperator {
             TokenType::LessThanEqual => BinaryOperator::LessThanEqual,
             TokenType::GreaterThan => BinaryOperator::GreaterThan,
             TokenType::GreaterThanEqual => BinaryOperator::GreaterThanEqual,
-            _ => todo!() // TODO
-        }
+            _ => return None
+        };
+
+        Some(op)
     }
 }
 
@@ -132,7 +252,14 @@ impl UnaryExpr {
     }
 }
 
-#[derive(PartialEq, Debug)]
+impl Compile for UnaryExpr {
+    fn compile(&self, compiler: &mut Compiler) {
+        compiler.compile_expr(&self.expr);
+        compiler.emit(Opcode::from(self.operator.clone()));
+    }
+}
+
+#[derive(PartialEq, Debug, Clone)]
 pub enum UnaryOperator {
     Negate,
     Not,
@@ -140,12 +267,22 @@ pub enum UnaryOperator {
 
 #[derive(PartialEq, Debug)]
 pub struct BlockExpr {
-    pub exprs: Vec<Expr>
+    pub exprs: Vec<Expr>,
 }
 
 impl BlockExpr {
     pub fn new(exprs: Vec<Expr>) -> Self {
         BlockExpr { exprs }
+    }
+}
+
+impl Compile for BlockExpr {
+    fn compile(&self, compiler: &mut Compiler) {
+        compiler.begin_scope();
+        for expr in &self.exprs {
+            compiler.compile_expr(expr);
+        }
+        compiler.end_scope();
     }
 }
 
@@ -160,6 +297,12 @@ impl GroupingExpr {
     }
 }
 
+impl Compile for GroupingExpr {
+    fn compile(&self, compiler: &mut Compiler) {
+        compiler.compile_expr(&self.expr);
+    }
+}
+
 #[derive(PartialEq, Debug)]
 pub struct VarAssignExpr {
     pub variable: Variable,
@@ -168,7 +311,25 @@ pub struct VarAssignExpr {
 
 impl VarAssignExpr {
     pub fn new(variable: Variable, initializer: Expr) -> Self {
-        VarAssignExpr { variable, initializer }
+        VarAssignExpr {
+            variable,
+            initializer,
+        }
+    }
+}
+
+impl Compile for VarAssignExpr {
+    fn compile(&self, compiler: &mut Compiler) {
+        // TODO Check if initialized -> if not init with nil
+        compiler.compile_expr(&self.initializer);
+
+        if *compiler.current.scope_depth() > 0 as isize {
+            // Local
+            compiler.compile_declare_var(&self.variable);
+        } else {
+            // Global
+            compiler.compile_define_var(&self.variable);
+        }
     }
 }
 
@@ -180,7 +341,30 @@ pub struct VarSetExpr {
 
 impl VarSetExpr {
     pub fn new(variable: Variable, initializer: Expr) -> Self {
-        VarSetExpr { variable, initializer }
+        VarSetExpr {
+            variable,
+            initializer,
+        }
+    }
+}
+
+impl Compile for VarSetExpr {
+    fn compile(&self, compiler: &mut Compiler) {
+        compiler.compile_expr(&self.initializer);
+
+        let var_name = &self.variable.name;
+        let arg = compiler.resolve_local(var_name);
+        if arg != -1 {
+            // Local
+            compiler.emit(Opcode::SetLocal);
+            compiler.emit_byte(arg as u8);
+        } else {
+            // Global
+            compiler.emit(Opcode::SetGlobal);
+            let str_obj = Value::string(var_name.clone());
+            let constant_id = compiler.current_chunk().add_constant(str_obj);
+            compiler.emit_byte(constant_id);
+        }
     }
 }
 
@@ -192,6 +376,42 @@ pub struct VarGetExpr {
 impl VarGetExpr {
     pub fn new(variable: Variable) -> Self {
         VarGetExpr { variable }
+    }
+}
+
+impl Compile for VarGetExpr {
+    fn compile(&self, compiler: &mut Compiler) {
+        let var_name = &self.variable.name;
+        let arg = compiler.resolve_local(var_name);
+        if arg != -1 {
+            // Local
+            compiler.emit(Opcode::GetLocal);
+            compiler.emit_byte(arg as u8);
+        } else {
+            // Global
+            compiler.emit(Opcode::GetGlobal);
+            let str_obj = Value::string(var_name.clone());
+            let constant_id = compiler.current_chunk().add_constant(str_obj);
+            compiler.emit_byte(constant_id);
+        }
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct PrintExpr {
+    pub expr: Expr,
+}
+
+impl PrintExpr {
+    pub fn new(expr: Expr) -> PrintExpr {
+        PrintExpr { expr }
+    }
+}
+
+impl Compile for PrintExpr {
+    fn compile(&self, compiler: &mut Compiler) {
+        compiler.compile_expr(&self.expr);
+        compiler.emit(Opcode::Print);
     }
 }
 
@@ -209,12 +429,34 @@ impl Variable {
 #[derive(PartialEq, Debug)]
 pub struct IfExpr {
     pub condition: Expr,
-    pub then_clause: Vec<Expr>,
+    pub then_clause: Expr,
 }
 
 impl IfExpr {
-    pub fn new(condition: Expr, then_clause: Vec<Expr>) -> Self {
-        IfExpr { condition, then_clause }
+    pub fn new(condition: Expr, then_clause: Expr) -> Self {
+        IfExpr {
+            condition,
+            then_clause,
+        }
+    }
+}
+
+impl Compile for IfExpr {
+    fn compile(&self, compiler: &mut Compiler) {
+        compiler.compile_expr(&self.condition);
+
+        // Jump to else clause if false
+        let then_jump = compiler.emit_jump(Opcode::JumpIfFalse);
+        compiler.emit(Opcode::Pop);
+
+        compiler.compile_expr(&self.then_clause);
+
+        let else_jump = compiler.emit_jump(Opcode::Jump);
+
+        compiler.patch_jump(then_jump);
+        compiler.emit(Opcode::Pop);
+
+        compiler.patch_jump(else_jump);
     }
 }
 
@@ -227,7 +469,36 @@ pub struct IfElseExpr {
 
 impl IfElseExpr {
     pub fn new(condition: Expr, then_clause: BlockExpr, else_clause: BlockExpr) -> Self {
-        IfElseExpr { condition, then_clause, else_clause }
+        IfElseExpr {
+            condition,
+            then_clause,
+            else_clause,
+        }
+    }
+}
+
+impl Compile for IfElseExpr {
+    fn compile(&self, compiler: &mut Compiler) {
+        compiler.compile_expr(&self.condition);
+
+        // Jump to else clause if false
+        let then_jump = compiler.emit_jump(Opcode::JumpIfFalse);
+        compiler.emit(Opcode::Pop);
+
+        for expr in &self.then_clause.exprs {
+            compiler.compile_expr(expr);
+        }
+
+        let else_jump = compiler.emit_jump(Opcode::Jump);
+
+        compiler.patch_jump(then_jump);
+        compiler.emit(Opcode::Pop);
+
+        for expr in &self.else_clause.exprs {
+            compiler.compile_expr(expr);
+        }
+
+        compiler.patch_jump(else_jump);
     }
 }
 
@@ -251,21 +522,47 @@ pub struct FunctionExpr {
 
 impl FunctionExpr {
     pub fn new(variable: Variable, declaration: FunctionDeclaration) -> Self {
-        FunctionExpr { variable, declaration }
+        FunctionExpr {
+            variable,
+            declaration,
+        }
     }
 }
 
-#[derive(PartialEq, Debug)]
-pub struct ForExpr {
-    pub var_decl: Expr,
-    pub condition: Expr,
-    pub increment: Expr,
-    pub body: Expr,
-}
+impl Compile for FunctionExpr {
+    fn compile(&self, compiler: &mut Compiler) {
+        let current_copy = compiler.current.clone();
+        compiler.current = CompilerInstance::new(EvalFunctionType::Function);
+        *compiler.current.enclosing_mut() = Box::new(Some(current_copy));
 
-impl ForExpr {
-    pub fn new(var_decl: Expr, condition: Expr, increment: Expr, body: Expr) -> Self {
-        ForExpr { var_decl, condition, increment, body }
+        // Set function name.
+        *compiler.current.function_mut().name_mut() = self.variable.name.clone();
+        *compiler.current.function_mut().chunk_mut().name_mut() = self.variable.name.clone();
+
+        compiler.begin_scope();
+
+        // Compile parameters.
+        for p in &self.declaration.parameters {
+            *compiler.current.function_mut().arity_mut() += 1;
+            compiler.compile_declare_var(p);
+        }
+
+        // Compile body.
+        self.declaration.body.compile(compiler); // TODO works???
+                                                 // compiler.compile_expr(&self.declaration.body);
+
+        // Create the function object.
+        let function = compiler.end_compiler();
+
+        compiler.emit(Opcode::Closure);
+
+        let constant_id = compiler
+            .current_chunk()
+            .add_constant(Value::function(function));
+
+        compiler.emit_byte(constant_id);
+
+        compiler.compile_define_var(&self.variable); // TODO fun is always global?
     }
 }
 
@@ -281,6 +578,21 @@ impl WhileExpr {
     }
 }
 
+impl Compile for WhileExpr {
+    fn compile(&self, compiler: &mut Compiler) {
+        let loop_start = compiler.current_chunk().code().len();
+        compiler.compile_expr(&self.condition);
+
+        let exit_jump = compiler.emit_jump(Opcode::JumpIfFalse);
+        compiler.emit(Opcode::Pop);
+        compiler.compile_expr(&self.body);
+
+        compiler.emit_loop(loop_start);
+        compiler.patch_jump(exit_jump);
+        compiler.emit(Opcode::Pop);
+    }
+}
+
 #[derive(PartialEq, Debug)]
 pub struct CallExpr {
     pub callee: Expr,
@@ -293,6 +605,24 @@ impl CallExpr {
     }
 }
 
+impl Compile for CallExpr {
+    fn compile(&self, compiler: &mut Compiler) {
+        let arity = self.args.len();
+        if arity > 8 {
+            panic!() // TODO
+        }
+
+        compiler.compile_expr(&self.callee);
+
+        for arg in &self.args {
+            compiler.compile_expr(arg);
+        }
+
+        compiler.emit(Opcode::Call);
+        compiler.emit_byte(arity as u8);
+    }
+}
+
 #[derive(PartialEq, Debug)]
 pub struct ReturnExpr {
     pub expr: Option<Expr>,
@@ -301,5 +631,20 @@ pub struct ReturnExpr {
 impl ReturnExpr {
     pub fn new(expr: Option<Expr>) -> Self {
         ReturnExpr { expr }
+    }
+}
+
+impl Compile for ReturnExpr {
+    fn compile(&self, compiler: &mut Compiler) {
+        if *compiler.current.function_type() == EvalFunctionType::Script {
+            panic!("Can't return from top level code."); // TODO Turn into error
+        }
+
+        if let Some(expr) = &self.expr {
+            compiler.compile_expr(expr);
+            compiler.emit(Opcode::Return);
+        } else {
+            compiler.emit_return()
+        }
     }
 }

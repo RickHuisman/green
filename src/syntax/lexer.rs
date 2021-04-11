@@ -1,7 +1,7 @@
-use std::str::{CharIndices, FromStr};
-use crate::syntax::token::{Token, TokenType, Position, Keyword};
-use crate::syntax::error::SyntaxError;
+use crate::error::SyntaxError;
 use crate::syntax::peek::PeekWithNext;
+use crate::syntax::token::{Keyword, Position, Token, TokenType};
+use std::str::{CharIndices, FromStr};
 
 type Result<T> = std::result::Result<T, SyntaxError>;
 
@@ -14,7 +14,11 @@ pub struct Lexer<'a> {
 impl<'a> Lexer<'a> {
     fn new(source: &'a str) -> Self {
         let chars = PeekWithNext::new(source.char_indices());
-        Lexer { source, chars, line: 1 }
+        Lexer {
+            source,
+            chars,
+            line: 1,
+        }
     }
 
     pub fn parse(source: &str) -> Result<Vec<Token>> {
@@ -32,9 +36,10 @@ impl<'a> Lexer<'a> {
         self.skip_whitespace();
 
         let c = self.advance();
-        if c.is_none() { // TODO ???
+        if c.is_none() {
+            // TODO ???
             if self.is_at_end() {
-                return Ok(self.eof())
+                return Ok(self.eof());
             }
         }
         let (start, char) = c.unwrap();
@@ -68,7 +73,7 @@ impl<'a> Lexer<'a> {
                 } else {
                     TokenType::Bang
                 }
-            },
+            }
             '=' => {
                 if self.match_next('=') {
                     self.advance();
@@ -76,7 +81,7 @@ impl<'a> Lexer<'a> {
                 } else {
                     TokenType::Equal
                 }
-            },
+            }
             '<' => {
                 if self.match_next('=') {
                     self.advance();
@@ -84,7 +89,7 @@ impl<'a> Lexer<'a> {
                 } else {
                     TokenType::LessThan
                 }
-            },
+            }
             '>' => {
                 if self.match_next('=') {
                     self.advance();
@@ -92,7 +97,7 @@ impl<'a> Lexer<'a> {
                 } else {
                     TokenType::GreaterThan
                 }
-            },
+            }
             '"' => {
                 return match self.string() {
                     Ok(ty) => {
@@ -101,10 +106,10 @@ impl<'a> Lexer<'a> {
                         let mut token = self.make_token(start, ty);
                         token.source = source;
                         Ok(token)
-                    },
+                    }
                     Err(err) => Err(err),
-                }
-            },
+                };
+            }
             '#' => {
                 // '#' indicates a comment.
                 self.advance_while(|&c| c != '\n');
@@ -113,7 +118,7 @@ impl<'a> Lexer<'a> {
             }
             _ => {
                 return Err(SyntaxError::UnexpectedChar(char));
-            },
+            }
         };
         Ok(self.make_token(start, token_type))
     }
@@ -129,7 +134,7 @@ impl<'a> Lexer<'a> {
 
         Ok(self.make_token(start, token_type))
     }
-    
+
     fn number(&mut self, start: usize) -> Result<Token<'a>> {
         self.advance_while(|c| c.is_digit(10));
 
@@ -164,11 +169,7 @@ impl<'a> Lexer<'a> {
 
     fn make_token(&mut self, start: usize, token_type: TokenType) -> Token<'a> {
         let source = self.token_contents(start);
-        let position = Position::new(
-            start,
-            start + source.len(),
-            self.line
-        );
+        let position = Position::new(start, start + source.len(), self.line);
         Token::new(token_type, source, position)
     }
 
@@ -181,14 +182,18 @@ impl<'a> Lexer<'a> {
     }
 
     fn token_contents(&mut self, start: usize) -> &'a str {
-        let end = self.chars
+        let end = self
+            .chars
             .peek()
             .map(|&(i, _)| i)
             .unwrap_or(self.source.len());
         &self.source[start..end].trim_end()
     }
 
-    fn advance_while<F>(&mut self, f: F) -> usize where for<'r> F: Fn(&'r char,) -> bool {
+    fn advance_while<F>(&mut self, f: F) -> usize
+    where
+        for<'r> F: Fn(&'r char) -> bool,
+    {
         let mut count = 0;
         while let Some(char) = self.peek() {
             if f(&char) {
@@ -210,7 +215,8 @@ impl<'a> Lexer<'a> {
         })
     }
 
-    fn match_next(&mut self, c: char) -> bool { // TODO Option???
+    fn match_next(&mut self, c: char) -> bool {
+        // TODO Option???
         self.peek().unwrap() == c
     }
 
@@ -230,20 +236,14 @@ impl<'a> Lexer<'a> {
 #[cfg(test)]
 mod tests {
     use super::Lexer;
-    use crate::syntax::token::{Token, TokenType, Position};
+    use crate::syntax::token::{Position, Token, TokenType};
 
     #[test]
     fn parse_number() {
         let expect = vec![
-            Token::new(TokenType::Number, "2", Position::new(
-                0, 0, 1
-            )),
-            Token::new(TokenType::Number, "10", Position::new(
-                2, 3, 1
-            )),
-            Token::new(TokenType::Number, "3.33", Position::new(
-                5, 8, 1
-            )),
+            Token::new(TokenType::Number, "2", Position::new(0, 0, 1)),
+            Token::new(TokenType::Number, "10", Position::new(2, 3, 1)),
+            Token::new(TokenType::Number, "3.33", Position::new(5, 8, 1)),
         ];
 
         let input = "2 10 3.33";
@@ -255,12 +255,8 @@ mod tests {
     #[test]
     fn parse_string() {
         let expect = vec![
-            Token::new(TokenType::String, "foo", Position::new(
-                0, 0, 1
-            )),
-            Token::new(TokenType::String, "bar", Position::new(
-                2, 3, 1
-            )),
+            Token::new(TokenType::String, "foo", Position::new(0, 0, 1)),
+            Token::new(TokenType::String, "bar", Position::new(2, 3, 1)),
         ];
 
         let input = r#""foo" "bar""#;

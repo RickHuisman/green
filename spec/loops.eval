@@ -2,14 +2,19 @@ for x in 0 to 10 do
     print(x)
 end
 
-print(" ")
+print("")
 
 for x in 10 downTo 0 do
     print(x)
 end
 
-print(" ")
+print("")
 
 for x in 0 to 10 step 2 do
     print(x)
 end
+
+# TODO
+#for x in 0..10 do
+    #print(x)
+#end

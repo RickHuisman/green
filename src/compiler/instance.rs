@@ -1,5 +1,5 @@
-use crate::compiler::object::{EvalFunction, EvalFunctionType};
 use crate::compiler::local::Local;
+use crate::compiler::object::{EvalFunction, EvalFunctionType};
 
 #[derive(Debug, Clone)]
 pub struct CompilerInstance {

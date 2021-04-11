@@ -1,4 +1,6 @@
-use std::fmt::{Debug, Formatter};
+use crate::syntax::token::TokenType;
+use std::fmt;
+use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Clone)]
 pub enum SyntaxError {
@@ -25,6 +27,27 @@ impl Debug for SyntaxError {
             SyntaxError::InvalidAssignment => write!(f, "Invalid assignment target."),
             SyntaxError::TooManyArguments => write!(f, "Cannot have more than 8 arguments."),
             SyntaxError::TooManyParameters => write!(f, "Cannot have more than 8 parameters."),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum ParserError {
+    UnexpectedToken(TokenType),
+    Expect(TokenType, TokenType),
+    UnexpectedEOF,
+}
+
+impl Display for ParserError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ParserError::UnexpectedToken(unexpected) => {
+                write!(f, "Unexpected token {:?}", unexpected)
+            }
+            ParserError::Expect(expected, actual) => {
+                write!(f, "Expected {:?}, got {:?}", expected, actual)
+            }
+            ParserError::UnexpectedEOF => write!(f, "Unexpected EOF"),
         }
     }
 }

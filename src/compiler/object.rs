@@ -1,6 +1,6 @@
 use crate::compiler::chunk::Chunk;
-use std::fmt::{Display, Formatter};
 use std::fmt;
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone)]
 pub enum Object {
@@ -46,7 +46,11 @@ pub struct EvalFunction {
 
 impl EvalFunction {
     pub fn new() -> Self {
-        EvalFunction { name: "".to_string(), chunk: Chunk::new(), arity: 0 }
+        EvalFunction {
+            name: "".to_string(),
+            chunk: Chunk::new(),
+            arity: 0,
+        }
     }
 
     pub fn chunk(&self) -> &Chunk {

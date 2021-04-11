@@ -1,8 +1,8 @@
-use std::ops::{Add, Sub, Mul, Div, Neg};
+use crate::compiler::object::{EvalClosure, EvalFunction, Object};
 use std::cmp::Ordering;
-use crate::compiler::object::{Object, EvalClosure, EvalFunction};
-use std::fmt::{Display, Formatter};
 use std::fmt;
+use std::fmt::{Display, Formatter};
+use std::ops::{Add, Div, Mul, Neg, Sub};
 
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -10,7 +10,7 @@ pub enum Value {
     True,
     False,
     Nil, // TODO Does Eval lang use nils???
-    Obj(Object)
+    Obj(Object),
 }
 
 impl Value {
@@ -156,7 +156,7 @@ impl Display for Value {
             Value::True => write!(f, "true"),
             Value::False => write!(f, "false"),
             Value::Nil => write!(f, "nil"),
-            Value::Obj(obj) => write!(f, "{}", obj)
+            Value::Obj(obj) => write!(f, "{}", obj),
         }
     }
 }
@@ -164,12 +164,10 @@ impl Display for Value {
 // TODO There must be a better way to convert Value::Obj(Obj::String()) to String
 pub fn value_to_string(val: Value) -> String {
     match val {
-        Value::Obj(s) => {
-            match s {
-                Object::String(s) => s,
-                _ => panic!("TODO"),
-            }
-        }
-        _ => panic!("TODO")
+        Value::Obj(s) => match s {
+            Object::String(s) => s,
+            _ => panic!("TODO"),
+        },
+        _ => panic!("TODO"),
     }
 }

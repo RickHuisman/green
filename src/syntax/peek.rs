@@ -29,7 +29,8 @@ impl<I: Iterator> PeekWithNext<I> {
 }
 
 impl<I> Iterator for PeekWithNext<I>
-    where I: Iterator,
+where
+    I: Iterator,
 {
     type Item = I::Item;
 

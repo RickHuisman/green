@@ -12,7 +12,7 @@ pub fn morph(mut tokens: Vec<Token>) -> Vec<Token> {
         match token.token_type {
             TokenType::LineComment => {
                 // Ignore comments.
-            },
+            }
             TokenType::Line => {
                 if morphed.is_empty() {
                     morphed.push(token);
@@ -23,7 +23,7 @@ pub fn morph(mut tokens: Vec<Token>) -> Vec<Token> {
                     }
                 }
             }
-            _ => morphed.push(token)
+            _ => morphed.push(token),
         }
     }
 

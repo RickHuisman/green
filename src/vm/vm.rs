@@ -1,11 +1,12 @@
 use crate::compiler::chunk::Chunk;
-use crate::compiler::value::{Value, value_to_string};
-use crate::compiler::opcode::Opcode;
-use std::collections::HashMap;
-use crate::compiler::object::{Object, EvalClosure};
-use crate::vm::callframe::CallFrame;
 use crate::compiler::compiler::Compiler;
+use crate::compiler::object::{EvalClosure, Object};
+use crate::compiler::opcode::Opcode;
+use crate::compiler::value::{value_to_string, Value};
 use crate::syntax::parser::{EvalParser, ModuleAst};
+use crate::vm::callframe::CallFrame;
+use std::collections::HashMap;
+use std::process::exit;
 
 pub struct VM {
     stack: Vec<Value>,
@@ -23,7 +24,13 @@ impl VM {
     }
 
     pub fn interpret(&mut self, source: &str) {
-        let module = EvalParser::parse(source).unwrap();
+        let module = match EvalParser::parse(source) {
+            Ok(m) => m,
+            Err(err) => {
+                println!("{}", err);
+                exit(1);
+            }
+        };
         let function = Compiler::compile_module(module);
 
         let closure = EvalClosure::new(function);
@@ -54,7 +61,9 @@ impl VM {
                 Opcode::SetGlobal => self.set_global(),
                 Opcode::JumpIfFalse => self.jump_if_false(),
                 Opcode::Jump => self.jump(),
-                Opcode::Pop => { self.pop(); }
+                Opcode::Pop => {
+                    self.pop();
+                }
                 Opcode::GetLocal => self.get_local(),
                 Opcode::SetLocal => self.set_local(),
                 Opcode::Nil => self.nil(),
@@ -158,7 +167,8 @@ impl VM {
     fn jump_if_false(&mut self) {
         let offset = self.read_short();
 
-        if !bool::from(self.peek()) { // TODO
+        if !bool::from(self.peek()) {
+            // TODO
             *self.frame_mut().ip_mut() += offset as usize;
         }
     }
@@ -208,34 +218,33 @@ impl VM {
 
         // FIXME
         match function {
-            Value::Obj(obj) => {
-                match obj {
-                    Object::Function(fun) => {
-                        let closure = EvalClosure::new(fun);
-                        self.push(Value::Obj(Object::Closure(closure)));
-                    },
-                    _ => {
-                        println!("{:?}", obj);
-                        todo!()
-                    }
+            Value::Obj(obj) => match obj {
+                Object::Function(fun) => {
+                    let closure = EvalClosure::new(fun);
+                    self.push(Value::Obj(Object::Closure(closure)));
                 }
-            }
-            _ => todo!()
+                _ => {
+                    println!("{:?}", obj);
+                    todo!()
+                }
+            },
+            _ => todo!(),
         }
     }
 
     fn call(&mut self, closure: EvalClosure, arity: u8) -> bool {
         if arity != *closure.function.arity() {
-            panic!("Expected {} arguments but got {}.", closure.function.arity(), arity);
+            panic!(
+                "Expected {} arguments but got {}.",
+                closure.function.arity(),
+                arity
+            );
         }
 
         let last = self.stack.len();
         let frame_start = last - (arity + 1) as usize;
 
-        self.frames.push(CallFrame::new(
-            closure,
-            frame_start,
-        ));
+        self.frames.push(CallFrame::new(closure, frame_start));
 
         true
     }

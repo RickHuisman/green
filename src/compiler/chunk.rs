@@ -1,7 +1,7 @@
-use crate::compiler::value::Value;
-use std::fmt::{Display, Formatter};
-use std::fmt;
 use crate::compiler::opcode::Opcode;
+use crate::compiler::value::Value;
+use std::fmt;
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone)]
 pub struct Chunk {
@@ -13,7 +13,12 @@ pub struct Chunk {
 
 impl Chunk {
     pub fn new() -> Self {
-        Chunk { name: "".to_string(), code: vec![], constants: vec![], lines: vec![] }
+        Chunk {
+            name: "".to_string(),
+            code: vec![],
+            constants: vec![],
+            lines: vec![],
+        }
     }
 
     pub fn write(&mut self, opcode: Opcode, line: usize) {
@@ -75,12 +80,7 @@ fn disassemble_instruction(f: &mut Formatter<'_>, chunk: &Chunk, offset: &mut us
     let instruction = Opcode::from(chunk.code[*offset]);
     match instruction {
         Opcode::Return => simple_instruction(f, "OP_RETURN", offset),
-        Opcode::Constant => constant_instruction(
-            chunk,
-            f,
-            "OP_CONSTANT",
-            offset,
-        ),
+        Opcode::Constant => constant_instruction(chunk, f, "OP_CONSTANT", offset),
         Opcode::Add => simple_instruction(f, "OP_ADD", offset),
         Opcode::Subtract => simple_instruction(f, "OP_SUBTRACT", offset),
         Opcode::Multiply => simple_instruction(f, "OP_MULTIPLY", offset),
@@ -104,13 +104,13 @@ fn disassemble_instruction(f: &mut Formatter<'_>, chunk: &Chunk, offset: &mut us
         Opcode::Closure => {
             *offset += 2;
 
-            let constant = chunk.code[*offset-1];
+            let constant = chunk.code[*offset - 1];
             write!(f, "{:-16} {:4} ", "OP_CLOSURE", constant);
             writeln!(f, "'{}'", chunk.constants()[constant as usize]);
 
             *offset
-        },
-        Opcode::Loop => jump_instruction(chunk, f, "OP_LOOP", 0, offset) // TODO sign should be -1
+        }
+        Opcode::Loop => jump_instruction(chunk, f, "OP_LOOP", 0, offset), // TODO sign should be -1
     }
 }
 
@@ -143,17 +143,18 @@ fn jump_instruction(
 
     let jump = lo + (hi << 8);
 
-    writeln!(f, "{:-16} {:4X} -> {:4X}", name, offset, *offset + 3 + sign * jump as usize);
+    writeln!(
+        f,
+        "{:-16} {:4X} -> {:4X}",
+        name,
+        offset,
+        *offset + 3 + sign * jump as usize
+    );
 
     *offset + 3
 }
 
-fn byte_instruction(
-    chunk: &Chunk,
-    f: &mut Formatter<'_>,
-    name: &str,
-    offset: &mut usize,
-) -> usize {
+fn byte_instruction(chunk: &Chunk, f: &mut Formatter<'_>, name: &str, offset: &mut usize) -> usize {
     let slot = chunk.code[*offset + 1];
     writeln!(f, "{:-16} {:4X}", name, slot);
     *offset + 2

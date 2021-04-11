@@ -1,2 +1,2 @@
-pub mod vm;
 mod callframe;
+pub mod vm;
