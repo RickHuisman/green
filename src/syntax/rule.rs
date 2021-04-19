@@ -3,18 +3,18 @@ use crate::syntax::expr::{
     BinaryExpr, BinaryOperator, CallExpr, Expr, ExprKind, GroupingExpr, LiteralExpr, UnaryExpr,
     UnaryOperator,
 };
-use crate::syntax::parser::EvalParser;
+use crate::syntax::parser::GreenParser;
 use crate::syntax::token::{Keyword, Token, TokenType};
 use std::collections::HashMap;
 
 type Result<T> = std::result::Result<T, ParserError>;
 
 pub trait PrefixParser {
-    fn parse<'a>(&self, parser: &mut EvalParser, token: Token<'a>) -> Result<Expr>;
+    fn parse<'a>(&self, parser: &mut GreenParser, token: Token<'a>) -> Result<Expr>;
 }
 
 pub trait InfixParser {
-    fn parse<'a>(&self, parser: &mut EvalParser, left: Expr, token: Token<'a>) -> Result<Expr>;
+    fn parse<'a>(&self, parser: &mut GreenParser, left: Expr, token: Token<'a>) -> Result<Expr>;
     fn get_precedence(&self) -> Precedence;
 }
 
@@ -48,7 +48,7 @@ pub fn get_prefix_rule(token_type: &TokenType) -> Option<Box<dyn PrefixParser>> 
                 if let Some(token_type) = map4.get(token_type) {
                     Some(Box::new(*token_type))
                 } else {
-                    println!("No rule for token type: {:?}", token_type);
+                    println!("No rule for token type_system: {:?}", token_type);
                     None
                 }
             }
@@ -104,7 +104,7 @@ pub fn get_infix_rule(token_type: &TokenType) -> Option<Box<dyn InfixParser>> {
         if let Some(token_type) = map2.get(&token_type) {
             Some(Box::new(*token_type))
         } else {
-            println!("No rule for token type: {:?}", token_type);
+            println!("No rule for token type_system: {:?}", token_type);
             None
         }
     }
@@ -142,7 +142,7 @@ pub enum Precedence {
 struct LiteralParser;
 
 impl PrefixParser for LiteralParser {
-    fn parse<'a>(&self, parser: &mut EvalParser, token: Token<'a>) -> Result<Expr> {
+    fn parse<'a>(&self, parser: &mut GreenParser, token: Token<'a>) -> Result<Expr> {
         let op = match token.token_type {
             TokenType::Number => LiteralExpr::Number(token.source.parse::<f64>().unwrap()),
             TokenType::String => LiteralExpr::String(token.source.to_string()), // TODO
@@ -158,7 +158,7 @@ impl PrefixParser for LiteralParser {
 struct GroupingParser;
 
 impl PrefixParser for GroupingParser {
-    fn parse<'a>(&self, parser: &mut EvalParser, token: Token<'a>) -> Result<Expr> {
+    fn parse<'a>(&self, parser: &mut GreenParser, token: Token<'a>) -> Result<Expr> {
         let expr = parser.parse_expression()?;
         parser.expect(TokenType::RightParen)?;
         Ok(Expr::new(ExprKind::Grouping(GroupingExpr::new(expr))))
@@ -169,7 +169,7 @@ impl PrefixParser for GroupingParser {
 struct IdentifierParser;
 
 impl PrefixParser for IdentifierParser {
-    fn parse<'a>(&self, parser: &mut EvalParser, token: Token<'a>) -> Result<Expr> {
+    fn parse<'a>(&self, parser: &mut GreenParser, token: Token<'a>) -> Result<Expr> {
         Ok(parser.parse_var(token)?)
     }
 }
@@ -186,7 +186,7 @@ impl InfixOperatorParser {
 }
 
 impl InfixParser for InfixOperatorParser {
-    fn parse<'a>(&self, parser: &mut EvalParser, left: Expr, token: Token<'a>) -> Result<Expr> {
+    fn parse<'a>(&self, parser: &mut GreenParser, left: Expr, token: Token<'a>) -> Result<Expr> {
         // Assume left associativity.
         let right = parser.parse_precedence(self.precedence)?;
 
@@ -210,7 +210,7 @@ impl CallParser {
 }
 
 impl InfixParser for CallParser {
-    fn parse<'a>(&self, parser: &mut EvalParser, left: Expr, token: Token<'a>) -> Result<Expr> {
+    fn parse<'a>(&self, parser: &mut GreenParser, left: Expr, token: Token<'a>) -> Result<Expr> {
         let mut args = vec![];
         if !parser.match_(TokenType::RightParen)? {
             args.push(parser.parse_expression()?);
@@ -239,7 +239,7 @@ impl UnaryParser {
 }
 
 impl PrefixParser for UnaryParser {
-    fn parse<'a>(&self, parser: &mut EvalParser, token: Token<'a>) -> Result<Expr> {
+    fn parse<'a>(&self, parser: &mut GreenParser, token: Token<'a>) -> Result<Expr> {
         let operator_type = token.token_type;
 
         let expr = parser.parse_expression()?;

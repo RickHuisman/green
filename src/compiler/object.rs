@@ -5,8 +5,8 @@ use std::fmt::{Display, Formatter};
 #[derive(Debug, Clone)]
 pub enum Object {
     String(String),
-    Closure(EvalClosure),
-    Function(EvalFunction),
+    Closure(GreenClosure),
+    Function(GreenFunction),
 }
 
 impl Display for Object {
@@ -20,33 +20,33 @@ impl Display for Object {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum EvalFunctionType {
+pub enum GreenFunctionType {
     Closure,
     Function,
     Script,
 }
 
 #[derive(Debug, Clone)]
-pub struct EvalClosure {
-    pub function: EvalFunction,
+pub struct GreenClosure {
+    pub function: GreenFunction,
 }
 
-impl EvalClosure {
-    pub fn new(function: EvalFunction) -> EvalClosure {
-        EvalClosure { function }
+impl GreenClosure {
+    pub fn new(function: GreenFunction) -> GreenClosure {
+        GreenClosure { function }
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct EvalFunction {
+pub struct GreenFunction {
     name: String,
     chunk: Chunk,
     arity: u8,
 }
 
-impl EvalFunction {
+impl GreenFunction {
     pub fn new() -> Self {
-        EvalFunction {
+        GreenFunction {
             name: "".to_string(),
             chunk: Chunk::new(),
             arity: 0,

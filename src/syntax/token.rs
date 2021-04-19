@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Token<'a> {
     pub token_type: TokenType,
     pub source: &'a str,
@@ -14,6 +14,12 @@ impl<'a> Token<'a> {
             source,
             position,
         }
+    }
+}
+
+impl PartialEq for Token<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.token_type == other.token_type && self.source == other.source
     }
 }
 
@@ -53,7 +59,9 @@ pub enum TokenType {
     LessThanEqual,
     GreaterThan,
     GreaterThanEqual,
+    Arrow,
     Slash,
+    Semicolon,
     Colon,
 
     // Literals
@@ -66,7 +74,6 @@ pub enum TokenType {
 
     Comment,
     LineComment,
-    Line,
 
     EOF,
 }
@@ -83,7 +90,7 @@ pub enum Keyword {
     Print,
     Do,
     End,
-    Def,
+    Fun,
     Var,
     Val,
     If,
@@ -110,7 +117,7 @@ impl FromStr for Keyword {
             "print" => Ok(Keyword::Print),
             "do" => Ok(Keyword::Do),
             "end" => Ok(Keyword::End),
-            "def" => Ok(Keyword::Def),
+            "fun" => Ok(Keyword::Fun),
             "var" => Ok(Keyword::Var),
             "val" => Ok(Keyword::Val),
             "if" => Ok(Keyword::If),

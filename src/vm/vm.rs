@@ -1,9 +1,9 @@
 use crate::compiler::chunk::Chunk;
 use crate::compiler::compiler::Compiler;
-use crate::compiler::object::{EvalClosure, Object};
+use crate::compiler::object::{GreenClosure, Object};
 use crate::compiler::opcode::Opcode;
 use crate::compiler::value::{value_to_string, Value};
-use crate::syntax::parser::{EvalParser, ModuleAst};
+use crate::syntax::parser::{GreenParser, ModuleAst};
 use crate::vm::callframe::CallFrame;
 use std::collections::HashMap;
 use std::process::exit;
@@ -24,7 +24,7 @@ impl VM {
     }
 
     pub fn interpret(&mut self, source: &str) {
-        let module = match EvalParser::parse(source) {
+        let module = match GreenParser::parse(source) {
             Ok(m) => m,
             Err(err) => {
                 println!("{}", err);
@@ -33,7 +33,7 @@ impl VM {
         };
         let function = Compiler::compile_module(module);
 
-        let closure = EvalClosure::new(function);
+        let closure = GreenClosure::new(function);
         self.push(Value::closure(closure.clone()));
         self.call_value(Value::closure(closure.clone()), 0);
 
@@ -61,9 +61,7 @@ impl VM {
                 Opcode::SetGlobal => self.set_global(),
                 Opcode::JumpIfFalse => self.jump_if_false(),
                 Opcode::Jump => self.jump(),
-                Opcode::Pop => {
-                    self.pop();
-                }
+                Opcode::Pop => { self.pop(); }
                 Opcode::GetLocal => self.get_local(),
                 Opcode::SetLocal => self.set_local(),
                 Opcode::Nil => self.nil(),
@@ -220,7 +218,7 @@ impl VM {
         match function {
             Value::Obj(obj) => match obj {
                 Object::Function(fun) => {
-                    let closure = EvalClosure::new(fun);
+                    let closure = GreenClosure::new(fun);
                     self.push(Value::Obj(Object::Closure(closure)));
                 }
                 _ => {
@@ -232,7 +230,7 @@ impl VM {
         }
     }
 
-    fn call(&mut self, closure: EvalClosure, arity: u8) -> bool {
+    fn call(&mut self, closure: GreenClosure, arity: u8) -> bool {
         if arity != *closure.function.arity() {
             panic!(
                 "Expected {} arguments but got {}.",

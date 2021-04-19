@@ -59,13 +59,20 @@ impl<'a> Lexer<'a> {
             '}' => TokenType::RightBrace,
             ',' => TokenType::Comma,
             '.' => TokenType::Dot,
-            '-' => TokenType::Minus,
+            '-' => {
+                if self.match_next('>') {
+                    self.advance();
+                    TokenType::Arrow
+                } else {
+                    TokenType::Minus
+                }
+            },
             '+' => TokenType::Plus,
             '%' => TokenType::Percent,
             '/' => TokenType::Slash,
             '*' => TokenType::Star,
             ':' => TokenType::Colon,
-            ';' | '\n' | '\r' => TokenType::Line,
+            ';' => TokenType::Semicolon,
             '!' => {
                 if self.match_next('=') {
                     self.advance();
@@ -174,7 +181,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn skip_whitespace(&mut self) {
-        self.advance_while(|&c| c == ' ' || c == '\t');
+        self.advance_while(|&c| c.is_whitespace());
     }
 
     fn eof(&mut self) -> Token<'a> {
@@ -236,14 +243,19 @@ impl<'a> Lexer<'a> {
 #[cfg(test)]
 mod tests {
     use super::Lexer;
-    use crate::syntax::token::{Position, Token, TokenType};
+    use crate::syntax::token::{Keyword, Position, Token, TokenType};
+
+    // TODO: Test Token position
+    fn empty_pos() -> Position {
+        Position::new(0, 0, 0)
+    }
 
     #[test]
     fn parse_number() {
         let expect = vec![
-            Token::new(TokenType::Number, "2", Position::new(0, 0, 1)),
-            Token::new(TokenType::Number, "10", Position::new(2, 3, 1)),
-            Token::new(TokenType::Number, "3.33", Position::new(5, 8, 1)),
+            Token::new(TokenType::Number, "2", empty_pos()),
+            Token::new(TokenType::Number, "10", empty_pos()),
+            Token::new(TokenType::Number, "3.33", empty_pos()),
         ];
 
         let input = "2 10 3.33";
@@ -255,51 +267,80 @@ mod tests {
     #[test]
     fn parse_string() {
         let expect = vec![
-            Token::new(TokenType::String, "foo", Position::new(0, 0, 1)),
+            Token::new(TokenType::String, "foo", empty_pos()),
             Token::new(TokenType::String, "bar", Position::new(2, 3, 1)),
         ];
 
         let input = r#""foo" "bar""#;
-
         let actual = Lexer::parse(input).unwrap();
+
         assert_eq!(expect, actual);
     }
 
     #[test]
-    fn parse_def() {
-        let input = r#"
-        def double(x: Int) -> Int
-        end
-        "#;
+    fn parse_fn() {
+        let expect = vec![
+            Token::new(TokenType::Identifier, "fn", empty_pos()),
+            Token::new(TokenType::Identifier, "double", empty_pos()),
+            Token::new(TokenType::LeftParen, "(", empty_pos()),
+            Token::new(TokenType::Identifier, "x", empty_pos()),
+            Token::new(TokenType::Colon, ":", empty_pos()),
+            Token::new(TokenType::Identifier, "Int", empty_pos()),
+            Token::new(TokenType::RightParen, ")", empty_pos()),
+            Token::new(TokenType::Arrow, "->", empty_pos()),
+            Token::new(TokenType::Identifier, "Int", empty_pos()),
+            Token::new(TokenType::LeftBrace, "{", empty_pos()),
+            Token::new(TokenType::RightBrace, "}", empty_pos()),
+            Token::new(TokenType::EOF, "", empty_pos()),
+        ];
 
-        let actual = Lexer::parse(input).unwrap();
-        for token in actual {
-            println!("{:?}", token);
+        let input = r#"
+        fn double(x: Int) -> Int {
         }
+        "#;
+        let actual = Lexer::parse(input).unwrap();
+
+        assert_eq!(expect, actual);
     }
 
     #[test]
     fn parse_import() {
+        let expect = vec![
+            Token::new(TokenType::Keyword(Keyword::Import), "import", empty_pos()),
+            Token::new(TokenType::Identifier, "foo", empty_pos()),
+            Token::new(TokenType::Dot, ".", empty_pos()),
+            Token::new(TokenType::Identifier, "bar", empty_pos()),
+            Token::new(TokenType::EOF, "", empty_pos()),
+        ];
+
         let input = r#"
         import foo.bar
         "#;
-
         let actual = Lexer::parse(input).unwrap();
-        for token in actual {
-            println!("{:?}", token);
-        }
+
+        assert_eq!(expect, actual);
     }
 
     #[test]
     fn parse_for() {
-        let input = r#"
-        for x in 1 to 10 do
-        end
-        "#;
+        let expect = vec![
+            Token::new(TokenType::Keyword(Keyword::For), "for", empty_pos()),
+            Token::new(TokenType::Identifier, "x", empty_pos()),
+            Token::new(TokenType::Keyword(Keyword::In), "in", empty_pos()),
+            Token::new(TokenType::Number, "1", empty_pos()),
+            Token::new(TokenType::Keyword(Keyword::To), "to", empty_pos()),
+            Token::new(TokenType::Number, "10", empty_pos()),
+            Token::new(TokenType::LeftBrace, "{", empty_pos()),
+            Token::new(TokenType::RightBrace, "}", empty_pos()),
+            Token::new(TokenType::EOF, "", empty_pos()),
+        ];
 
-        let actual = Lexer::parse(input).unwrap();
-        for token in actual {
-            println!("{:?}", token);
+        let input = r#"
+        for x in 1 to 10 {
         }
+        "#;
+        let actual = Lexer::parse(input).unwrap();
+
+        assert_eq!(expect, actual);
     }
 }

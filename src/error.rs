@@ -19,7 +19,7 @@ impl Debug for SyntaxError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             SyntaxError::UnexpectedEOF => write!(f, "Unexpected end of input"),
-            SyntaxError::UnexpectedChar(char) => write!(f, "unexpected character {}", char),
+            SyntaxError::UnexpectedChar(char) => write!(f, "Unexpected character '{}'", char),
             SyntaxError::UnterminatedString => write!(f, "Unterminated string."),
             SyntaxError::ExpectAfter(e1, e2) => write!(f, "Expect {} after {}", e1, e2),
             SyntaxError::ExpectBefore(e1, e2) => write!(f, "Expect {} befor {}", e1, e2),

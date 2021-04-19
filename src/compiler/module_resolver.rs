@@ -1,4 +1,4 @@
-use crate::syntax::parser::{EvalParser, ModuleAst};
+use crate::syntax::parser::{GreenParser, ModuleAst};
 use std::env::current_dir;
 use std::path::Path;
 
@@ -10,7 +10,7 @@ pub enum ImportModuleError {
 pub fn get_module_ast(module: &String) -> Result<ModuleAst, ImportModuleError> {
     let module_path = resolve_module_path(module);
     let body = get_file_contents(module_path.to_str().unwrap()).unwrap();
-    let module_ast = EvalParser::parse(&body).unwrap();
+    let module_ast = GreenParser::parse(&body).unwrap();
     Ok(module_ast)
 }
 
@@ -21,7 +21,7 @@ fn resolve_module_path(module: &String) -> Box<Path> {
         path.push(Path::new(dir))
     }
 
-    path.set_extension(Path::new("eval"));
+    path.set_extension(Path::new("green"));
 
     path.into_boxed_path()
 }

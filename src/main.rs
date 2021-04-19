@@ -8,12 +8,13 @@ mod compiler;
 mod error;
 mod syntax;
 mod vm;
+mod type_system;
 
 fn main() {
-    // let literal = Expr::new(ExprKind::Literal(LiteralExpr::Number(10.0)));
+    type_system::repl::repl();
 
-    let source = get_file_contents("/Users/rickhuisman/Documents/rust/eval/src/test.txt");
-    run(&source.unwrap());
+    // let source = get_file_contents("/Users/rickhuisman/Documents/rust/green/src/test.txt");
+    // run(&source.unwrap());
 
     // if env::args().len() == 0 {
     //     exit(1);

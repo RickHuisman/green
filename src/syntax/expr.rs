@@ -1,7 +1,7 @@
 use crate::compiler::compiler::Compiler;
 use crate::compiler::instance::CompilerInstance;
 use crate::compiler::module_resolver::get_module_ast;
-use crate::compiler::object::EvalFunctionType;
+use crate::compiler::object::GreenFunctionType;
 use crate::compiler::opcode::Opcode;
 use crate::compiler::value::Value;
 use crate::syntax::token::TokenType;
@@ -30,12 +30,40 @@ impl Expr {
         Expr::new(ExprKind::Import(import_expr))
     }
 
+    pub fn literal(literal_expr: LiteralExpr) -> Expr {
+        Expr::new(ExprKind::Literal(literal_expr))
+    }
+
+    pub fn binary(binary: BinaryExpr) -> Expr {
+        Expr::new(ExprKind::Binary(binary))
+    }
+
     pub fn block(block: BlockExpr) -> Expr {
         Expr::new(ExprKind::Block(block))
     }
 
+    pub fn var_assign(assign: VarAssignExpr) -> Expr {
+        Expr::new(ExprKind::VarAssign(assign))
+    }
+
+    pub fn var_set(set: VarSetExpr) -> Expr {
+        Expr::new(ExprKind::VarSet(set))
+    }
+
+    pub fn var_get(get: VarGetExpr) -> Expr {
+        Expr::new(ExprKind::VarGet(get))
+    }
+
     pub fn print(print: PrintExpr) -> Expr {
         Expr::new(ExprKind::Print(print))
+    }
+
+    pub fn grouping(group: GroupingExpr) -> Expr {
+        Expr::new(ExprKind::Grouping(group))
+    }
+
+    pub fn if_else(if_else: IfElseExpr) -> Expr {
+        Expr::new(ExprKind::IfElse(if_else))
     }
 
     pub fn while_(while_expr: WhileExpr) -> Expr {
@@ -532,7 +560,7 @@ impl FunctionExpr {
 impl Compile for FunctionExpr {
     fn compile(&self, compiler: &mut Compiler) {
         let current_copy = compiler.current.clone();
-        compiler.current = CompilerInstance::new(EvalFunctionType::Function);
+        compiler.current = CompilerInstance::new(GreenFunctionType::Function);
         *compiler.current.enclosing_mut() = Box::new(Some(current_copy));
 
         // Set function name.
@@ -636,7 +664,7 @@ impl ReturnExpr {
 
 impl Compile for ReturnExpr {
     fn compile(&self, compiler: &mut Compiler) {
-        if *compiler.current.function_type() == EvalFunctionType::Script {
+        if *compiler.current.function_type() == GreenFunctionType::Script {
             panic!("Can't return from top level code."); // TODO Turn into error
         }
 

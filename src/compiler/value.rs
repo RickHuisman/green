@@ -1,4 +1,4 @@
-use crate::compiler::object::{EvalClosure, EvalFunction, Object};
+use crate::compiler::object::{GreenClosure, GreenFunction, Object};
 use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::{Display, Formatter};
@@ -9,7 +9,7 @@ pub enum Value {
     Number(f64),
     True,
     False,
-    Nil, // TODO Does Eval lang use nils???
+    Nil, // TODO Does Green lang use nils???
     Obj(Object),
 }
 
@@ -18,11 +18,11 @@ impl Value {
         Value::Obj(Object::String(s))
     }
 
-    pub fn closure(e: EvalClosure) -> Value {
+    pub fn closure(e: GreenClosure) -> Value {
         Value::Obj(Object::Closure(e))
     }
 
-    pub fn function(f: EvalFunction) -> Value {
+    pub fn function(f: GreenFunction) -> Value {
         Value::Obj(Object::Function(f))
     }
 }

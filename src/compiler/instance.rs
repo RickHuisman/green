@@ -1,19 +1,19 @@
 use crate::compiler::local::Local;
-use crate::compiler::object::{EvalFunction, EvalFunctionType};
+use crate::compiler::object::{GreenFunction, GreenFunctionType};
 
 #[derive(Debug, Clone)]
 pub struct CompilerInstance {
-    function: EvalFunction,
-    function_type: EvalFunctionType,
+    function: GreenFunction,
+    function_type: GreenFunctionType,
     locals: Vec<Local>,
     scope_depth: isize,
     enclosing: Box<Option<CompilerInstance>>,
 }
 
 impl CompilerInstance {
-    pub fn new(function_type: EvalFunctionType) -> Self {
+    pub fn new(function_type: GreenFunctionType) -> Self {
         let mut compiler = CompilerInstance {
-            function: EvalFunction::new(),
+            function: GreenFunction::new(),
             function_type,
             locals: Vec::with_capacity(u8::MAX as usize),
             scope_depth: 0,
@@ -24,15 +24,15 @@ impl CompilerInstance {
         compiler
     }
 
-    pub fn function(&self) -> &EvalFunction {
+    pub fn function(&self) -> &GreenFunction {
         &self.function
     }
 
-    pub fn function_mut(&mut self) -> &mut EvalFunction {
+    pub fn function_mut(&mut self) -> &mut GreenFunction {
         &mut self.function
     }
 
-    pub fn function_type(&self) -> &EvalFunctionType {
+    pub fn function_type(&self) -> &GreenFunctionType {
         &self.function_type
     }
 

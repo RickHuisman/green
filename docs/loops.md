@@ -1,21 +1,27 @@
-# For
-for x in 0..3 do
-    print(x) # Prints 0-1-2-3
-end
+# Loops
 
-for x in 1 to 4 do
-    print(x) # Prints 1-2-3-4
-end
+## For
+for x in 0..3 {
+    print(x); // 0 1 2 3
+}
 
-for x in 4 downTo 1 step 2 do
-    print(x) # Prints 4-2
-end
+for x in 1 to 4 {
+    print(x); // 1 2 3 4
+}
 
-for item in collection do
-    print(item)
-end
+for x in 4 downto 1 step 2 {
+    print(x); // Prints 4-2
+}
 
-# While
-while x > 0 do
-    x--
-end
+for item in collection {
+    print(item);
+}
+
+## While
+var x = 0;
+while x < 5 {
+    x = x++
+    print(x) // 1 2 3 4 5
+}
+
+## TODO Break & Continue???

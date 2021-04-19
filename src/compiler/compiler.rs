@@ -2,7 +2,7 @@ use crate::compiler::chunk::Chunk;
 use crate::compiler::instance::CompilerInstance;
 use crate::compiler::local::Local;
 use crate::compiler::module_resolver::get_module_ast;
-use crate::compiler::object::{EvalFunction, EvalFunctionType};
+use crate::compiler::object::{GreenFunction, GreenFunctionType};
 use crate::compiler::opcode::Opcode;
 use crate::compiler::value::Value;
 use crate::syntax::expr::{
@@ -19,11 +19,11 @@ pub struct Compiler {
 impl Compiler {
     fn new() -> Self {
         Compiler {
-            current: CompilerInstance::new(EvalFunctionType::Script),
+            current: CompilerInstance::new(GreenFunctionType::Script),
         }
     }
 
-    pub fn compile_module(module: ModuleAst) -> EvalFunction {
+    pub fn compile_module(module: ModuleAst) -> GreenFunction {
         let mut compiler = Compiler::new();
 
         for expr in module.exprs() {
@@ -155,7 +155,7 @@ impl Compiler {
         }
     }
 
-    pub(crate) fn end_compiler(&mut self) -> EvalFunction {
+    pub(crate) fn end_compiler(&mut self) -> GreenFunction {
         self.emit_return();
         let fun_copy = self.current.function().clone();
 
@@ -199,10 +199,10 @@ impl Compiler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::syntax::parser::EvalParser;
+    use crate::syntax::parser::GreenParser;
 
     fn parse_source(str: &str) -> ModuleAst {
-        EvalParser::parse(str).unwrap()
+        GreenParser::parse(str).unwrap()
     }
 
     #[test]

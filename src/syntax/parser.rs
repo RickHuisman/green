@@ -1,19 +1,19 @@
 use crate::error::ParserError;
-use crate::syntax::expr::ExprKind::Binary;
+use crate::syntax::expr::ExprKind::{Binary, Literal};
 use crate::syntax::expr::{
     BinaryExpr, BinaryOperator, BlockExpr, Expr, ExprKind, FunctionDeclaration, FunctionExpr,
     IfElseExpr, IfExpr, ImportExpr, LiteralExpr, PrintExpr, ReturnExpr, SequenceExpr,
     VarAssignExpr, VarGetExpr, VarSetExpr, Variable, WhileExpr,
 };
 use crate::syntax::lexer::Lexer;
-use crate::syntax::morpher::morph;
 use crate::syntax::parser::ParserError::UnexpectedToken;
 use crate::syntax::rule::{get_infix_rule, get_precedence, get_prefix_rule, Precedence};
 use crate::syntax::token::{Keyword, Token, TokenType};
 use std::fmt;
 use std::fmt::Display;
+use crate::syntax::token::TokenType::Semicolon;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct ModuleAst {
     exprs: Vec<Expr>,
 }
@@ -30,53 +30,47 @@ impl ModuleAst {
 
 type Result<T> = std::result::Result<T, ParserError>;
 
-pub struct EvalParser<'a> {
+pub struct GreenParser<'a> {
     tokens: Vec<Token<'a>>,
 }
 
-impl<'a> EvalParser<'a> {
+impl<'a> GreenParser<'a> {
     fn new(source: &'a str) -> Self {
         let mut tokens = Lexer::parse(source).unwrap();
-        tokens = morph(tokens);
         tokens.reverse();
 
-        EvalParser { tokens }
+        GreenParser { tokens }
     }
 
     pub fn parse(source: &str) -> Result<ModuleAst> {
-        let mut parser = EvalParser::new(source);
+        let mut parser = GreenParser::new(source);
 
         let mut exprs = vec![];
         while !parser.match_(TokenType::EOF)? {
-            // Consume lines till a non line token is found
-            while parser.match_(TokenType::Line)? {
-                parser.consume()?;
-            }
-
             exprs.push(parser.parse_top_level_expression()?);
-
-            if !parser.match_(TokenType::EOF)? {
-                parser.expect(TokenType::Line)?;
-            }
         }
 
         Ok(ModuleAst::new(exprs))
     }
 
-    // Eval doesn't have statements but "top-level" expressions.
+    // Green doesn't have statements but "top-level" expressions.
     fn parse_top_level_expression(&mut self) -> Result<Expr> {
         match self.peek_type()? {
             TokenType::Keyword(Keyword::Import) => self.parse_import(),
             TokenType::Keyword(Keyword::Print) => self.parse_print(),
-            TokenType::Keyword(Keyword::Def) => self.declare_def(),
+            TokenType::Keyword(Keyword::Fun) => self.declare_def(),
             TokenType::Keyword(Keyword::Var) => self.declare_var(true),
             TokenType::Keyword(Keyword::Val) => self.declare_var(false),
-            TokenType::Keyword(Keyword::Do) => self.parse_do(),
+            TokenType::LeftBrace => self.parse_block(),
             TokenType::Keyword(Keyword::If) => self.parse_if(),
             TokenType::Keyword(Keyword::While) => self.parse_while(),
             TokenType::Keyword(Keyword::For) => self.parse_for(),
             TokenType::Keyword(Keyword::Return) => self.parse_return(),
-            _ => self.parse_expression(),
+            _ => {
+                let expr = self.parse_expression();
+                self.expect(TokenType::Semicolon)?;
+                expr
+            },
         }
     }
 
@@ -129,9 +123,9 @@ impl<'a> EvalParser<'a> {
 
         // Consume tokens till end of line; this is the path of the module.
         let mut module_path = String::new();
-        while !self.match_(TokenType::Line)? {
-            module_path.push_str(self.consume()?.source);
-        }
+        // while !self.match_(TokenType::Line)? {
+        //     module_path.push_str(self.consume()?.source);
+        // }
 
         let import_expr = ImportExpr::new(module_path.to_string());
         Ok(Expr::import(import_expr))
@@ -139,23 +133,26 @@ impl<'a> EvalParser<'a> {
 
     fn parse_print(&mut self) -> Result<Expr> {
         self.expect(TokenType::Keyword(Keyword::Print))?;
-        Ok(Expr::print(PrintExpr::new(self.parse_expression()?)))
+        let expr = self.parse_expression()?;
+        self.expect(TokenType::Semicolon);
+        Ok(Expr::print(PrintExpr::new(expr)))
     }
 
     fn declare_def(&mut self) -> Result<Expr> {
-        self.expect(TokenType::Keyword(Keyword::Def));
+        self.expect(TokenType::Keyword(Keyword::Fun));
 
         let identifier = self.expect(TokenType::Identifier)?;
 
         self.expect(TokenType::LeftParen)?;
 
         let mut parameters = vec![];
-        while !self.match_(TokenType::RightParen)? && !self.match_(TokenType::EOF)? {
+        while !self.match_(TokenType::RightParen)?
+            && !self.match_(TokenType::EOF)? {
             let param = self.expect(TokenType::Identifier)?;
             self.expect(TokenType::Colon)?;
             let param_type = self.expect(TokenType::Identifier)?;
 
-            // TODO Pass type
+            // TODO Pass type_system
             parameters.push(Variable::new(param.source.to_string()));
 
             if self.match_(TokenType::Comma)? {
@@ -167,13 +164,10 @@ impl<'a> EvalParser<'a> {
 
         self.expect(TokenType::RightParen)?;
 
-        // TODO Check if fun has return type
-        self.expect(TokenType::Minus);
-        self.expect(TokenType::GreaterThan);
+        // TODO Check if fun has return type_system
+        self.expect(TokenType::Arrow);
 
         let return_type = self.expect(TokenType::Identifier)?;
-
-        self.expect(TokenType::Line)?;
 
         let body = self.parse_block()?.node.block().unwrap(); // TODO Unwrap
 
@@ -186,25 +180,24 @@ impl<'a> EvalParser<'a> {
     }
 
     fn declare_var(&mut self, mutable: bool) -> Result<Expr> {
-        self.expect(TokenType::Keyword(Keyword::Var));
+        self.consume()?; // Consume "var"
 
-        let identifier = self.expect(TokenType::Identifier);
-        let var = Variable::new(identifier?.source.to_string());
+        let identifier = self.expect(TokenType::Identifier)?;
+        let var = Variable::new(identifier.source.to_string());
 
         let mut initializer = Expr::new(ExprKind::Literal(LiteralExpr::Nil));
 
         // Var has initializer
         if self.match_(TokenType::Equal)? {
-            // Pop '=' operator
+            // Consume '=' operator
             self.consume()?;
 
-            initializer = self.parse_top_level_expression()?;
+            initializer = self.parse_expression()?;
         }
 
-        Ok(Expr::new(ExprKind::VarAssign(VarAssignExpr::new(
-            var,
-            initializer,
-        ))))
+        self.expect(TokenType::Semicolon)?;
+
+        Ok(Expr::var_assign(VarAssignExpr::new(var, initializer)))
     }
 
     pub fn parse_var(&mut self, identifier: Token) -> Result<Expr> {
@@ -224,43 +217,22 @@ impl<'a> EvalParser<'a> {
         Ok(Expr::new(expr_kind))
     }
 
-    fn parse_do(&mut self) -> Result<Expr> {
-        self.expect(TokenType::Keyword(Keyword::Do))?;
-        self.expect(TokenType::Line)?;
-
-        Ok(self.parse_block()?)
-    }
-
     fn parse_if(&mut self) -> Result<Expr> {
         self.expect(TokenType::Keyword(Keyword::If));
 
         let cond = self.parse_expression()?;
-
-        self.expect(TokenType::Keyword(Keyword::Then))?;
-
-        if self.match_(TokenType::Line)? {
-            self.consume()?;
-        }
-
-        let mut then = vec![];
-        while !self.match_(TokenType::Keyword(Keyword::End))?
-            && !self.match_(TokenType::Keyword(Keyword::Else))?
-        {
-            then.push(self.parse_top_level_expression()?);
-            self.expect(TokenType::Line)?;
-        }
+        let then = self.parse_block()?.node.block().unwrap();
 
         let expr_kind = if self.match_(TokenType::Keyword(Keyword::Else))? {
             self.consume()?;
 
-            self.expect(TokenType::Line)?;
-
             let else_clause = self.parse_block()?.node.block().unwrap(); // TODO Unwrap
 
-            ExprKind::IfElse(IfElseExpr::new(cond, BlockExpr::new(then), else_clause))
+            ExprKind::IfElse(IfElseExpr::new(cond, then, else_clause))
         } else {
-            self.expect(TokenType::Keyword(Keyword::End));
-            ExprKind::If(IfExpr::new(cond, Expr::sequence(SequenceExpr::new(then))))
+            ExprKind::If(IfExpr::new(cond, Expr::sequence(
+                SequenceExpr::new(then.exprs))
+            ))
         };
 
         Ok(Expr::new(expr_kind))
@@ -270,7 +242,7 @@ impl<'a> EvalParser<'a> {
         self.expect(TokenType::Keyword(Keyword::While))?;
         let cond = self.parse_expression()?;
 
-        let body = self.parse_do()?;
+        let body = self.parse_block()?;
 
         let test = Expr::while_(WhileExpr::new(cond, body));
         println!("{:?}", test);
@@ -346,7 +318,7 @@ impl<'a> EvalParser<'a> {
             ))),
         );
 
-        let test_body = self.parse_do()?;
+        let test_body = self.parse_block()?;
         let mut foo = vec![];
         foo.push(test_body);
         foo.push(Expr::new(ExprKind::VarSet(incr_expr)));
@@ -362,7 +334,7 @@ impl<'a> EvalParser<'a> {
     fn parse_return(&mut self) -> Result<Expr> {
         self.expect(TokenType::Keyword(Keyword::Return))?;
 
-        let return_expr = if self.match_(TokenType::Line)? {
+        let return_expr = if self.match_(TokenType::Colon)? { // TODO
             None
         } else {
             Some(self.parse_top_level_expression()?)
@@ -372,15 +344,16 @@ impl<'a> EvalParser<'a> {
     }
 
     fn parse_block(&mut self) -> Result<Expr> {
-        // TODO Check for single line expr: do print(10) end
+        self.consume()?; // Consume '{'
 
         let mut exprs = vec![];
-        while !self.match_(TokenType::Keyword(Keyword::End))? {
+        while !self.match_(TokenType::RightBrace)? &&
+            !self.match_(TokenType::EOF)?
+        {
             exprs.push(self.parse_top_level_expression()?);
-            self.expect(TokenType::Line)?;
         }
 
-        self.expect(TokenType::Keyword(Keyword::End))?;
+        self.expect(TokenType::RightBrace)?;
 
         Ok(Expr::block(BlockExpr::new(exprs)))
     }
@@ -429,44 +402,129 @@ impl<'a> EvalParser<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::syntax::expr::GroupingExpr;
 
     #[test]
-    fn it_works() {
-        let input = r#"
-        do
-            print(10)
-            print(10)
-        end
-"#;
+    fn parse_block() {
+        let expected_exprs = Expr::block(BlockExpr::new(
+            vec![
+                Expr::print(PrintExpr::new(
+                    Expr::grouping(GroupingExpr::new(Expr::literal(
+                        LiteralExpr::Number(1.0)))
+                    ))
+                ),
+                Expr::print(PrintExpr::new(
+                    Expr::grouping(GroupingExpr::new(Expr::literal(
+                        LiteralExpr::Number(5.0)))
+                    ))
+                ),
+            ]
+        ));
+        let expect = ModuleAst::new(vec![expected_exprs]);
 
-        let exprs = EvalParser::parse(input);
-        println!("{:?}", exprs);
+        let input = r#"
+        {
+            print(1);
+            print(5);
+        }"#;
+        let actual = GreenParser::parse(input).unwrap();
+
+        assert_eq!(expect, actual);
     }
 
     #[test]
-    fn parse_var() {
+    fn parse_declare_var() {
+        let expected_exprs = vec![
+            Expr::var_assign(VarAssignExpr::new(
+                Variable::new("x".to_string()),
+                Expr::literal(
+                    LiteralExpr::Number(5.0)
+                ))
+            ),
+        ];
+        let expect = ModuleAst::new(expected_exprs);
+
         let input = r#"
-        var x = 10
-        x = 10
-        print(x)
+        var x = 5;
         "#;
 
-        let exprs = EvalParser::parse(input);
-        println!("{:?}", exprs);
+        let actual = GreenParser::parse(input).unwrap();
+
+        assert_eq!(expect, actual)
+    }
+
+    #[test]
+    fn parse_set_var() {
+        let expected_exprs = vec![
+            Expr::var_set(VarSetExpr::new(
+                Variable::new("x".to_string()),
+                Expr::literal(
+                    LiteralExpr::Number(5.0)
+                ))
+            ),
+        ];
+        let expect = ModuleAst::new(expected_exprs);
+
+        let input = r#"
+        x = 5;
+        "#;
+        let actual = GreenParser::parse(input).unwrap();
+
+        assert_eq!(expect, actual)
+    }
+
+    #[test]
+    fn parse_get_var() {
+        let expected_exprs = vec![
+            Expr::var_assign(VarAssignExpr::new(
+                Variable::new("x".to_string()),
+                Expr::literal(
+                    LiteralExpr::Number(5.0)
+                ))
+            ),
+            Expr::var_assign(VarAssignExpr::new(
+                Variable::new("y".to_string()),
+                Expr::var_get(VarGetExpr::new(
+                    Variable::new("x".to_string())
+                ))
+            )),
+        ];
+        let expect = ModuleAst::new(expected_exprs);
+
+        let input = r#"
+        var x = 5;
+        var y = x;
+        "#;
+        let actual = GreenParser::parse(input).unwrap();
+
+        assert_eq!(expect, actual)
     }
 
     #[test]
     fn parse_if_else() {
-        let input = r#"
-        if 10 > 5 then
-            print(5)
-        else
-            print(10)
-        end
-        "#;
+        let empty_vec: Vec<Expr> = vec![]; // FIXME
+        let empty_vec2: Vec<Expr> = vec![];
+        let expected_exprs = vec![
+            Expr::if_else(IfElseExpr::new(
+                Expr::binary(BinaryExpr::new(
+                    Expr::literal(LiteralExpr::Number(10.0)),
+                    Expr::literal(LiteralExpr::Number(5.0)),
+                    BinaryOperator::GreaterThan
+                )),
+                BlockExpr::new(empty_vec),
+                BlockExpr::new(empty_vec2),
+            ))
+        ];
+        let expect = ModuleAst::new(expected_exprs);
 
-        let exprs = EvalParser::parse(input);
-        println!("{:?}", exprs);
+        let input = r#"
+        if 10 > 5 {
+        } else {
+        }
+        "#;
+        let actual = GreenParser::parse(input).unwrap();
+
+        assert_eq!(expect, actual);
     }
 
     #[test]
@@ -477,32 +535,55 @@ mod test {
         import ..bar.foo
         "#;
 
-        let exprs = EvalParser::parse(input);
+        let exprs = GreenParser::parse(input);
         println!("{:?}", exprs);
     }
 
     #[test]
-    fn parse_def() {
-        let input = r#"
-        def double(x: Int) -> Int
-            return x * 2
-        end
-        "#;
+    fn parse_fun() {
+        let expected_exprs = vec![
+            Expr::new(ExprKind::Function(FunctionExpr::new(
+                Variable::new("double".to_string()),
+                FunctionDeclaration::new(
+                    vec![
+                        Variable::new("x".to_string()),
+                    ],
+                    BlockExpr::new(vec![
+                        Expr::return_(ReturnExpr::new(
+                            Some(Expr::binary(BinaryExpr::new(
+                                Expr::var_get(VarGetExpr::new(
+                                    Variable::new("x".to_string())
+                                )),
+                                Expr::literal(LiteralExpr::Number(2.0)),
+                                BinaryOperator::Multiply
+                            ))),
+                        ))
+                    ])
+                )
+            )))
+        ];
+        let expect = ModuleAst::new(expected_exprs);
 
-        let exprs = EvalParser::parse(input);
-        println!("{:?}", exprs);
+        let input = r#"
+        fun double(x: Int) -> Int {
+            return x * 2;
+        }
+        "#;
+        let actual = GreenParser::parse(input).unwrap();
+
+        assert_eq!(expect, actual);
     }
 
     #[test]
     fn parse_while() {
         let input = r#"
-        var x = 0
-        while x < 10 do
-            x = x + 1
-        end
+        var x = 0;
+        while x < 10 {
+            x = x + 1;
+        }
         "#;
 
-        let exprs = EvalParser::parse(input);
+        let exprs = GreenParser::parse(input);
         println!("{:#?}", exprs);
     }
 }
