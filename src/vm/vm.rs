@@ -68,6 +68,9 @@ impl VM {
                 Opcode::Call => self.call_instruction(),
                 Opcode::Closure => self.closure(),
                 Opcode::Loop => self.loop_(),
+                Opcode::BuildArray => self.build_array(),
+                Opcode::IndexSubscript => todo!(),
+                Opcode::StoreSubscript => todo!(),
             }
         }
     }
@@ -206,9 +209,7 @@ impl VM {
         let frame_start = self.stack.len() - (arity + 1) as usize;
         let callee = self.stack[frame_start].clone();
 
-        if !self.call_value(callee, arity) {
-            panic!("TODO");
-        }
+        self.call_value(callee, arity);
     }
 
     fn closure(&mut self) {
@@ -230,7 +231,7 @@ impl VM {
         }
     }
 
-    fn call(&mut self, closure: GreenClosure, arity: u8) -> bool {
+    fn call(&mut self, closure: GreenClosure, arity: u8) {
         if arity != *closure.function.arity() {
             panic!(
                 "Expected {} arguments but got {}.",
@@ -243,11 +244,9 @@ impl VM {
         let frame_start = last - (arity + 1) as usize;
 
         self.frames.push(CallFrame::new(closure, frame_start));
-
-        true
     }
 
-    fn call_value(&mut self, callee: Value, arity: u8) -> bool {
+    fn call_value(&mut self, callee: Value, arity: u8) {
         // Check if callee is obj
         match callee {
             Value::Obj(obj) => {
@@ -264,6 +263,21 @@ impl VM {
     fn loop_(&mut self) {
         let offset = self.read_short();
         *self.frame_mut().ip_mut() -= offset as usize;
+    }
+
+    fn build_array(&mut self) {
+        // Stack before: [item1, item2, ..., itemN] and after: [list]
+        let mut array = vec![];
+        let mut item_count = self.read_byte();
+
+        // Move items from stack to array
+        for _ in 0..item_count {
+            array.push(self.pop());
+        }
+
+        // TODO Another pop()?
+
+        self.push(Value::Obj(Object::Array(array)))
     }
 
     fn read_constant(&mut self) -> Value {

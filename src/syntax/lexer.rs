@@ -55,6 +55,8 @@ impl<'a> Lexer<'a> {
         let token_type = match char {
             '(' => TokenType::LeftParen,
             ')' => TokenType::RightParen,
+            '[' => TokenType::LeftBracket,
+            ']' => TokenType::RightBracket,
             '{' => TokenType::LeftBrace,
             '}' => TokenType::RightBrace,
             ',' => TokenType::Comma,

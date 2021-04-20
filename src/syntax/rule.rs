@@ -1,11 +1,9 @@
 use crate::error::ParserError;
-use crate::syntax::expr::{
-    BinaryExpr, BinaryOperator, CallExpr, Expr, ExprKind, GroupingExpr, LiteralExpr, UnaryExpr,
-    UnaryOperator,
-};
+use crate::syntax::expr::{BinaryExpr, BinaryOperator, CallExpr, Expr, ExprKind, GroupingExpr, LiteralExpr, UnaryExpr, UnaryOperator, ArrayExpr};
 use crate::syntax::parser::GreenParser;
 use crate::syntax::token::{Keyword, Token, TokenType};
 use std::collections::HashMap;
+// use term::terminfo::parser::compiled::parse;
 
 type Result<T> = std::result::Result<T, ParserError>;
 
@@ -36,6 +34,9 @@ pub fn get_prefix_rule(token_type: &TokenType) -> Option<Box<dyn PrefixParser>> 
     map4.insert(TokenType::Bang, UnaryParser {});
     map4.insert(TokenType::Minus, UnaryParser {});
 
+    let mut map5 = HashMap::new();
+    map5.insert(TokenType::LeftBracket, ArrayParser {});
+
     if let Some(token_type) = map.get(token_type) {
         Some(Box::new(*token_type))
     } else {
@@ -48,8 +49,12 @@ pub fn get_prefix_rule(token_type: &TokenType) -> Option<Box<dyn PrefixParser>> 
                 if let Some(token_type) = map4.get(token_type) {
                     Some(Box::new(*token_type))
                 } else {
-                    println!("No rule for token type_system: {:?}", token_type);
-                    None
+                    if let Some(token_type) = map5.get(token_type) {
+                        Some(Box::new(*token_type))
+                    } else {
+                        println!("No rule for token type_system: {:?}", token_type);
+                        None
+                    }
                 }
             }
         }
@@ -125,6 +130,10 @@ pub fn get_precedence(token: &Token) -> Precedence {
 pub enum Precedence {
     None = 0,
     Assignment = 1,
+    // or
+    Or = 2,
+    // and
+    And = 3,
     // =
     Equality = 4,
     // == !=
@@ -251,5 +260,45 @@ impl PrefixParser for UnaryParser {
         };
 
         Ok(Expr::new(ExprKind::Unary(UnaryExpr::new(expr, op))))
+    }
+}
+
+#[derive(Copy, Clone)]
+struct ArrayParser;
+
+impl ArrayParser {
+    pub fn new() -> Self {
+        ArrayParser {}
+    }
+}
+
+impl PrefixParser for ArrayParser {
+    fn parse<'a>(&self, parser: &mut GreenParser, token: Token<'a>) -> Result<Expr> {
+        let mut exprs = vec![];
+
+        if !parser.match_(TokenType::RightBracket)? {
+            loop {
+                if parser.match_(TokenType::RightBracket)? {
+                    // trailing comma case
+                    break;
+                }
+
+                let expr = parser.parse_precedence(Precedence::Or)?;
+                exprs.push(expr);
+
+                // TODO Max items in list
+                // if (itemCount == UINT8_COUNT) {
+                //     error("Cannot have more than 256 items in a list literal.");
+                // }
+
+                if parser.match_(TokenType::Comma)? {
+                    parser.consume()?;
+                }
+            }
+        }
+
+        parser.expect(TokenType::RightBracket)?;
+
+        Ok(Expr::new(ExprKind::Array(ArrayExpr::new(Some(exprs)))))
     }
 }

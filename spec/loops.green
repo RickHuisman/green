@@ -1,20 +1,23 @@
-for x in 0 to 10 do
-    print(x)
-end
+for x in 0 to 10 {
+    print(x);
+}
 
-print("")
+print("");
 
-for x in 10 downTo 0 do
-    print(x)
-end
+for x in 10 downTo 0 {
+    print(x);
+}
 
-print("")
+print("");
 
-for x in 0 to 10 step 2 do
-    print(x)
-end
+for x in 0 to 10 step 2 {
+    print(x);
+}
 
-# TODO
-#for x in 0..10 do
-    #print(x)
-#end
+print("");
+
+var x = 0;
+while x < 10 {
+    x = x + 1;
+    print(x);
+}

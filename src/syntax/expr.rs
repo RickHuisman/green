@@ -94,6 +94,7 @@ pub enum ExprKind {
     Call(CallExpr),
     While(WhileExpr),
     Return(ReturnExpr),
+    Array(ArrayExpr),
 }
 
 impl Compile for ExprKind {
@@ -116,6 +117,7 @@ impl Compile for ExprKind {
             ExprKind::Call(c) => c.compile(compiler),
             ExprKind::While(w) => w.compile(compiler),
             ExprKind::Return(r) => r.compile(compiler),
+            ExprKind::Array(a) => a.compile(compiler),
         }
     }
 }
@@ -674,5 +676,32 @@ impl Compile for ReturnExpr {
         } else {
             compiler.emit_return()
         }
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct ArrayExpr {
+    pub exprs: Option<Vec<Expr>>,
+}
+
+impl ArrayExpr {
+    pub fn new(exprs: Option<Vec<Expr>>) -> Self {
+        ArrayExpr { exprs }
+    }
+}
+
+impl Compile for ArrayExpr {
+    fn compile(&self, compiler: &mut Compiler) {
+        if let Some(exprs) = &self.exprs {
+            for expr in exprs {
+                expr.node.compile(compiler);
+            }
+        }
+
+        compiler.emit(Opcode::BuildArray);
+        let exprs_len = self.exprs
+            .as_ref()
+            .map_or_else(|| 0, |a| a.len());
+        compiler.emit_byte(exprs_len as u8);
     }
 }

@@ -1,10 +1,12 @@
 use crate::compiler::chunk::Chunk;
 use std::fmt;
 use std::fmt::{Display, Formatter};
+use crate::compiler::value::Value;
 
 #[derive(Debug, Clone)]
 pub enum Object {
     String(String),
+    Array(Vec<Value>), // TODO u32? Vec?
     Closure(GreenClosure),
     Function(GreenFunction),
 }
@@ -13,6 +15,7 @@ impl Display for Object {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Object::String(s) => write!(f, "{}", s),
+            Object::Array(a) => write!(f, "{:?}", a), // TODO
             Object::Closure(c) => write!(f, "<fn {}>", c.function.name),
             Object::Function(fun) => write!(f, "<fn {}>", fun.name),
         }

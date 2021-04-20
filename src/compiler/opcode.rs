@@ -26,6 +26,11 @@ pub enum Opcode {
     Call,
     Closure,
     Loop,
+
+    // Array opcodes
+    BuildArray,
+    IndexSubscript,
+    StoreSubscript,
 }
 
 impl From<u8> for Opcode {
@@ -55,6 +60,9 @@ impl From<u8> for Opcode {
             0x15 => Opcode::Call,
             0x16 => Opcode::Closure,
             0x17 => Opcode::Loop,
+            0x18 => Opcode::BuildArray,
+            0x19 => Opcode::IndexSubscript,
+            0x20 => Opcode::StoreSubscript,
             _ => panic!("No opcode for byte: {}", byte),
         }
     }

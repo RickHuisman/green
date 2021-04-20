@@ -102,6 +102,7 @@ fn disassemble_instruction(f: &mut Formatter<'_>, chunk: &Chunk, offset: &mut us
         Opcode::Nil => simple_instruction(f, "OP_NIL", offset),
         Opcode::Call => byte_instruction(chunk, f, "OP_CALL", offset),
         Opcode::Closure => {
+            // TODO
             *offset += 2;
 
             let constant = chunk.code[*offset - 1];
@@ -111,6 +112,9 @@ fn disassemble_instruction(f: &mut Formatter<'_>, chunk: &Chunk, offset: &mut us
             *offset
         }
         Opcode::Loop => jump_instruction(chunk, f, "OP_LOOP", 0, offset), // TODO sign should be -1
+        Opcode::BuildArray => simple_instruction(f, "OP_BUILD_ARRAY", offset), // TODO print array size
+        Opcode::IndexSubscript => 1, // TODO
+        Opcode::StoreSubscript => 1, // TODO
     }
 }
 
