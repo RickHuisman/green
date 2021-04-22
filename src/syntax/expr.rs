@@ -95,6 +95,7 @@ pub enum ExprKind {
     While(WhileExpr),
     Return(ReturnExpr),
     Array(ArrayExpr),
+    Subscript(SubscriptExpr),
 }
 
 impl Compile for ExprKind {
@@ -118,6 +119,7 @@ impl Compile for ExprKind {
             ExprKind::While(w) => w.compile(compiler),
             ExprKind::Return(r) => r.compile(compiler),
             ExprKind::Array(a) => a.compile(compiler),
+            ExprKind::Subscript(s) => s.compile(compiler),
         }
     }
 }
@@ -567,7 +569,7 @@ impl Compile for FunctionExpr {
 
         // Set function name.
         *compiler.current.function_mut().name_mut() = self.variable.name.clone();
-        *compiler.current.function_mut().chunk_mut().name_mut() = self.variable.name.clone();
+        *compiler.current.function_mut().chunk_mut().name_mut() = Some(self.variable.name.clone());
 
         compiler.begin_scope();
 
@@ -698,10 +700,37 @@ impl Compile for ArrayExpr {
             }
         }
 
-        compiler.emit(Opcode::BuildArray);
+        compiler.emit(Opcode::NewArray);
         let exprs_len = self.exprs
             .as_ref()
             .map_or_else(|| 0, |a| a.len());
         compiler.emit_byte(exprs_len as u8);
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct SubscriptExpr {
+    callee: Expr, // TODO Naming???
+    index: Expr,
+    expr: Option<Expr> // TODO Comment
+}
+
+impl SubscriptExpr {
+    pub fn new(callee: Expr, index: Expr,  expr: Option<Expr>) -> SubscriptExpr {
+        SubscriptExpr { callee, index, expr }
+    }
+}
+
+impl Compile for SubscriptExpr {
+    fn compile(&self, compiler: &mut Compiler) {
+        self.callee.node.compile(compiler);
+        self.index.node.compile(compiler);
+
+        if let Some(expr) = &self.expr {
+            expr.node.compile(compiler);
+            compiler.emit(Opcode::StoreSubscript);
+        } else {
+            compiler.emit(Opcode::IndexSubscript);
+        }
     }
 }

@@ -2,11 +2,12 @@ use crate::compiler::chunk::Chunk;
 use crate::compiler::compiler::Compiler;
 use crate::compiler::object::{GreenClosure, Object};
 use crate::compiler::opcode::Opcode;
-use crate::compiler::value::{value_to_string, Value};
+use crate::compiler::value::Value;
 use crate::syntax::parser::{GreenParser, ModuleAst};
 use crate::vm::callframe::CallFrame;
 use std::collections::HashMap;
 use std::process::exit;
+use crate::compiler::value::Value::Obj;
 
 pub struct VM {
     stack: Vec<Value>,
@@ -68,9 +69,9 @@ impl VM {
                 Opcode::Call => self.call_instruction(),
                 Opcode::Closure => self.closure(),
                 Opcode::Loop => self.loop_(),
-                Opcode::BuildArray => self.build_array(),
-                Opcode::IndexSubscript => todo!(),
-                Opcode::StoreSubscript => todo!(),
+                Opcode::NewArray => self.new_array(),
+                Opcode::IndexSubscript => self.index_subscript(),
+                Opcode::StoreSubscript => self.store_subscript(),
             }
         }
     }
@@ -143,20 +144,20 @@ impl VM {
     }
 
     fn define_global(&mut self) {
-        let name = value_to_string(self.read_constant());
+        let name = self.read_constant().as_string();
         let val = self.peek();
         self.globals.insert(name, val);
         self.pop();
     }
 
     fn get_global(&mut self) {
-        let name = value_to_string(self.read_constant());
+        let name = self.read_constant().as_string();
         let value = self.globals.get(&name).cloned();
         self.push(value.unwrap());
     }
 
     fn set_global(&mut self) {
-        let name = value_to_string(self.read_constant());
+        let name = self.read_constant().as_string();
         let peek = self.peek();
         if let Some(global) = self.globals.get_mut(&name) {
             *global = peek;
@@ -180,8 +181,12 @@ impl VM {
     }
 
     fn print(&mut self) {
-        let popped = self.pop(); // TODO should not pop value of stack because it's an expression
+        let popped = self.pop();
         println!("{}", popped);
+    }
+
+    fn nil(&mut self) {
+        self.push(Value::Nil);
     }
 
     fn get_local(&mut self) {
@@ -200,10 +205,6 @@ impl VM {
         self.stack[start + idx] = val;
     }
 
-    fn nil(&mut self) {
-        self.push(Value::Nil);
-    }
-
     fn call_instruction(&mut self) {
         let arity = self.read_byte();
         let frame_start = self.stack.len() - (arity + 1) as usize;
@@ -213,22 +214,9 @@ impl VM {
     }
 
     fn closure(&mut self) {
-        let function = self.read_constant(); // TODO Convert to function
-
-        // FIXME
-        match function {
-            Value::Obj(obj) => match obj {
-                Object::Function(fun) => {
-                    let closure = GreenClosure::new(fun);
-                    self.push(Value::Obj(Object::Closure(closure)));
-                }
-                _ => {
-                    println!("{:?}", obj);
-                    todo!()
-                }
-            },
-            _ => todo!(),
-        }
+        let fun = self.read_constant().as_function();
+        let closure = GreenClosure::new(fun);
+        self.push(Value::Obj(Object::Closure(closure)));
     }
 
     fn call(&mut self, closure: GreenClosure, arity: u8) {
@@ -247,17 +235,7 @@ impl VM {
     }
 
     fn call_value(&mut self, callee: Value, arity: u8) {
-        // Check if callee is obj
-        match callee {
-            Value::Obj(obj) => {
-                match obj {
-                    Object::Closure(c) => self.call(c, arity),
-                    // Object::Function(fun) => self.call(fun, arity),
-                    _ => panic!("Can only call functions"),
-                }
-            }
-            _ => panic!("Can only call functions"),
-        }
+        self.call(callee.as_closure(), arity);
     }
 
     fn loop_(&mut self) {
@@ -265,8 +243,8 @@ impl VM {
         *self.frame_mut().ip_mut() -= offset as usize;
     }
 
-    fn build_array(&mut self) {
-        // Stack before: [item1, item2, ..., itemN] and after: [list]
+    fn new_array(&mut self) {
+        // Stack before: [item1, item2, ..., itemN] and after: [array]
         let mut array = vec![];
         let mut item_count = self.read_byte();
 
@@ -275,9 +253,31 @@ impl VM {
             array.push(self.pop());
         }
 
-        // TODO Another pop()?
+        array.reverse();
 
         self.push(Value::Obj(Object::Array(array)))
+    }
+
+    fn index_subscript(&mut self) {
+        // Stack before: [array, index] and after: [index(array, index)]
+        let index = self.pop().as_number();
+        let array = self.pop().as_array();
+
+        // Stack before: [array, index] and after: [index(array, index)]
+        let result = array[index as usize].clone();
+        self.push(result);
+    }
+
+    fn store_subscript(&mut self) {
+        // Stack before: [array, index, item] and after: [item]
+        let item = self.pop();
+        let index = self.pop().as_number();
+        let mut array = self.pop().as_array();
+
+        // Stack before: [array, index] and after: [index(array, index)]
+        array[index as usize] = item;
+        let result = array.clone();
+        self.push(Value::Obj(Object::Array(result)));
     }
 
     fn read_constant(&mut self) -> Value {

@@ -25,6 +25,59 @@ impl Value {
     pub fn function(f: GreenFunction) -> Value {
         Value::Obj(Object::Function(f))
     }
+
+    // TODO Find a better way to convert Value::Obj(Obj::String()) to String
+    pub fn as_string(self) -> String {
+        match self {
+            Value::Obj(s) => match s {
+                Object::String(s) => s,
+                _ => panic!("TODO"),
+            },
+            _ => panic!("TODO"),
+        }
+    }
+
+    pub fn as_function(self) -> GreenFunction {
+        // FIXME
+        match self {
+            Value::Obj(obj) => match obj {
+                Object::Function(fun) => fun,
+                _ => panic!("TODO"), // TODO
+            },
+            _ => panic!("TODO"), // TODO
+        }
+    }
+
+    pub fn as_closure(self) -> GreenClosure {
+        // FIXME
+        match self {
+            Value::Obj(obj) => match obj {
+                Object::Closure(c) => c,
+                _ => panic!("Can only call functions"), // TODO
+            },
+            _ => panic!("Can only call functions"), // TODO
+        }
+    }
+
+    pub fn as_number(self) -> f64 {
+        match self {
+            Value::Number(n) => n,
+            _ => panic!("TODO"), // TODO
+        }
+    }
+
+    pub fn as_array(self) -> Vec<Value> {
+        // FIXME
+        match self {
+            Value::Obj(object) => {
+                match object {
+                    Object::Array(a) => a,
+                    _ => panic!("TODO"), // TODO
+                }
+            },
+            _ => panic!("TODO"), // TODO
+        }
+    }
 }
 
 impl From<Value> for bool {
@@ -158,16 +211,5 @@ impl Display for Value {
             Value::Nil => write!(f, "nil"),
             Value::Obj(obj) => write!(f, "{}", obj),
         }
-    }
-}
-
-// TODO There must be a better way to convert Value::Obj(Obj::String()) to String
-pub fn value_to_string(val: Value) -> String {
-    match val {
-        Value::Obj(s) => match s {
-            Object::String(s) => s,
-            _ => panic!("TODO"),
-        },
-        _ => panic!("TODO"),
     }
 }

@@ -5,7 +5,7 @@ use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone)]
 pub struct Chunk {
-    name: String,
+    name: Option<String>,
     code: Vec<u8>,
     constants: Vec<Value>,
     lines: Vec<usize>,
@@ -14,7 +14,7 @@ pub struct Chunk {
 impl Chunk {
     pub fn new() -> Self {
         Chunk {
-            name: "".to_string(),
+            name: None,
             code: vec![],
             constants: vec![],
             lines: vec![],
@@ -35,7 +35,7 @@ impl Chunk {
         self.constants.len() as u8 - 1
     }
 
-    pub fn name_mut(&mut self) -> &mut String {
+    pub fn name_mut(&mut self) -> &mut Option<String> {
         &mut self.name
     }
 
@@ -54,7 +54,11 @@ impl Chunk {
 
 impl Display for Chunk {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        writeln!(f, "== {} chunk ==", self.name);
+        if let Some(name) = &self.name {
+            writeln!(f, "== <{}> chunk ==", name);
+        } else {
+            writeln!(f, "== chunk ==");
+        }
 
         let mut offset = 0;
         while offset < self.code.len() {
@@ -112,9 +116,9 @@ fn disassemble_instruction(f: &mut Formatter<'_>, chunk: &Chunk, offset: &mut us
             *offset
         }
         Opcode::Loop => jump_instruction(chunk, f, "OP_LOOP", 0, offset), // TODO sign should be -1
-        Opcode::BuildArray => simple_instruction(f, "OP_BUILD_ARRAY", offset), // TODO print array size
-        Opcode::IndexSubscript => 1, // TODO
-        Opcode::StoreSubscript => 1, // TODO
+        Opcode::NewArray => byte_instruction(chunk, f, "OP_NEW_ARRAY", offset),
+        Opcode::IndexSubscript => simple_instruction(f, "OP_INDEX_SUBSCRIPT", offset), // TODO
+        Opcode::StoreSubscript => simple_instruction(f, "OP_STORE_SUBSCRIPT", offset), // TODO
     }
 }
 
