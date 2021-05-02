@@ -1,5 +1,5 @@
 use crate::error::ParserError;
-use crate::syntax::expr::{BinaryExpr, BinaryOperator, CallExpr, Expr, ExprKind, GroupingExpr, LiteralExpr, UnaryExpr, UnaryOperator, ArrayExpr, SubscriptExpr};
+use crate::syntax::expr::{BinaryExpr, BinaryOperator, CallExpr, Expr, ExprKind, GroupingExpr, LiteralExpr, UnaryExpr, UnaryOperator, ArrayExpr, SubscriptExpr, Variable, VarSetExpr, VarGetExpr};
 use crate::syntax::parser::GreenParser;
 use crate::syntax::token::{Keyword, Token, TokenType};
 use std::collections::HashMap;
@@ -184,7 +184,15 @@ struct IdentifierParser;
 
 impl PrefixParser for IdentifierParser {
     fn parse<'a>(&self, parser: &mut GreenParser, token: Token<'a>) -> Result<Expr> {
-        Ok(parser.parse_var(token)?)
+        let var = Variable::new(token.source.to_string());
+
+        Ok(if parser.match_(TokenType::Equal)? {
+            let initializer = parser.parse_expression()?;
+
+            Expr::var_set(VarSetExpr::new(var, initializer))
+        } else {
+            Expr::var_get(VarGetExpr::new(var))
+        })
     }
 }
 

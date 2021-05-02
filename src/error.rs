@@ -34,7 +34,7 @@ impl Debug for SyntaxError {
 #[derive(Debug)]
 pub enum ParserError {
     UnexpectedToken(TokenType),
-    Expect(TokenType, TokenType),
+    Expect(TokenType, TokenType, usize),
     UnexpectedEOF,
 }
 
@@ -44,8 +44,8 @@ impl Display for ParserError {
             ParserError::UnexpectedToken(unexpected) => {
                 write!(f, "Unexpected token {:?}", unexpected)
             }
-            ParserError::Expect(expected, actual) => {
-                write!(f, "Expected {:?}, got {:?}", expected, actual)
+            ParserError::Expect(expected, actual, line) => {
+                write!(f, "Expected {:?}, got {:?}, on line: {}", expected, actual, line)
             }
             ParserError::UnexpectedEOF => write!(f, "Unexpected EOF"),
         }

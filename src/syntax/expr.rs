@@ -73,6 +73,10 @@ impl Expr {
     pub fn return_(return_expr: ReturnExpr) -> Expr {
         Expr::new(ExprKind::Return(return_expr))
     }
+
+    pub fn nil() -> Expr {
+        Expr::new(ExprKind::Literal(LiteralExpr::Nil))
+    }
 }
 
 #[derive(PartialEq, Debug)]

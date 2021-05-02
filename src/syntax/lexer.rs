@@ -29,20 +29,20 @@ impl<'a> Lexer<'a> {
             tokens.push(lexer.read_token()?);
         }
 
+        if !(tokens.last().unwrap().token_type == TokenType::EOF) {
+            tokens.push(lexer.eof());
+        }
+
         Ok(tokens)
     }
 
     fn read_token(&mut self) -> Result<Token<'a>> {
         self.skip_whitespace();
-
-        let c = self.advance();
-        if c.is_none() {
-            // TODO ???
-            if self.is_at_end() {
-                return Ok(self.eof());
-            }
+        if self.is_at_end() {
+            return Ok(self.eof());
         }
-        let (start, char) = c.unwrap();
+
+        let (start, char) = self.advance().ok_or(SyntaxError::UnexpectedEOF)?;
 
         if char.is_alphabetic() {
             return self.identifier(start);
@@ -68,13 +68,13 @@ impl<'a> Lexer<'a> {
                 } else {
                     TokenType::Minus
                 }
-            },
+            }
             '+' => TokenType::Plus,
             '%' => TokenType::Percent,
             '/' => TokenType::Slash,
             '*' => TokenType::Star,
             ':' => TokenType::Colon,
-            ';' => TokenType::Semicolon,
+            ';' | '\n' | '\r' => TokenType::Line,
             '!' => {
                 if self.match_next('=') {
                     self.advance();
@@ -183,7 +183,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn skip_whitespace(&mut self) {
-        self.advance_while(|&c| c.is_whitespace());
+        self.advance_while(|&c| c == ' ' || c == '\t');
     }
 
     fn eof(&mut self) -> Token<'a> {
@@ -200,8 +200,8 @@ impl<'a> Lexer<'a> {
     }
 
     fn advance_while<F>(&mut self, f: F) -> usize
-    where
-        for<'r> F: Fn(&'r char) -> bool,
+        where
+                for<'r> F: Fn(&'r char) -> bool,
     {
         let mut count = 0;
         while let Some(char) = self.peek() {
@@ -258,6 +258,7 @@ mod tests {
             Token::new(TokenType::Number, "2", empty_pos()),
             Token::new(TokenType::Number, "10", empty_pos()),
             Token::new(TokenType::Number, "3.33", empty_pos()),
+            Token::new(TokenType::EOF, "", empty_pos()),
         ];
 
         let input = "2 10 3.33";
@@ -271,6 +272,7 @@ mod tests {
         let expect = vec![
             Token::new(TokenType::String, "foo", empty_pos()),
             Token::new(TokenType::String, "bar", Position::new(2, 3, 1)),
+            Token::new(TokenType::EOF, "", empty_pos()),
         ];
 
         let input = r#""foo" "bar""#;
@@ -282,25 +284,24 @@ mod tests {
     #[test]
     fn parse_fn() {
         let expect = vec![
-            Token::new(TokenType::Identifier, "fn", empty_pos()),
+            Token::new(TokenType::Keyword(Keyword::Def), "def", empty_pos()),
             Token::new(TokenType::Identifier, "double", empty_pos()),
             Token::new(TokenType::LeftParen, "(", empty_pos()),
             Token::new(TokenType::Identifier, "x", empty_pos()),
-            Token::new(TokenType::Colon, ":", empty_pos()),
-            Token::new(TokenType::Identifier, "Int", empty_pos()),
+            Token::new(TokenType::Comma, ",", empty_pos()),
+            Token::new(TokenType::Identifier, "y", empty_pos()),
             Token::new(TokenType::RightParen, ")", empty_pos()),
-            Token::new(TokenType::Arrow, "->", empty_pos()),
-            Token::new(TokenType::Identifier, "Int", empty_pos()),
-            Token::new(TokenType::LeftBrace, "{", empty_pos()),
-            Token::new(TokenType::RightBrace, "}", empty_pos()),
+            Token::new(TokenType::Line, "", empty_pos()),
+            Token::new(TokenType::Keyword(Keyword::End), "end", empty_pos()),
+            Token::new(TokenType::Line, "", empty_pos()),
             Token::new(TokenType::EOF, "", empty_pos()),
         ];
 
-        let input = r#"
-        fn double(x: Int) -> Int {
-        }
+        let input = r#"def double(x, y)
+        end
         "#;
         let actual = Lexer::parse(input).unwrap();
+        println!("{:#?}", actual);
 
         assert_eq!(expect, actual);
     }
@@ -315,9 +316,7 @@ mod tests {
             Token::new(TokenType::EOF, "", empty_pos()),
         ];
 
-        let input = r#"
-        import foo.bar
-        "#;
+        let input = r#"import foo.bar"#;
         let actual = Lexer::parse(input).unwrap();
 
         assert_eq!(expect, actual);
@@ -332,15 +331,14 @@ mod tests {
             Token::new(TokenType::Number, "1", empty_pos()),
             Token::new(TokenType::Keyword(Keyword::To), "to", empty_pos()),
             Token::new(TokenType::Number, "10", empty_pos()),
-            Token::new(TokenType::LeftBrace, "{", empty_pos()),
-            Token::new(TokenType::RightBrace, "}", empty_pos()),
+            Token::new(TokenType::Keyword(Keyword::Do), "do", empty_pos()),
+            Token::new(TokenType::Line, "", empty_pos()),
+            Token::new(TokenType::Keyword(Keyword::End), "end", empty_pos()),
             Token::new(TokenType::EOF, "", empty_pos()),
         ];
 
-        let input = r#"
-        for x in 1 to 10 {
-        }
-        "#;
+        let input = r#"for x in 1 to 10 do
+        end"#;
         let actual = Lexer::parse(input).unwrap();
 
         assert_eq!(expect, actual);

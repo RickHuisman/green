@@ -6,12 +6,11 @@ use crate::syntax::expr::{
     VarAssignExpr, VarGetExpr, VarSetExpr, Variable, WhileExpr,
 };
 use crate::syntax::lexer::Lexer;
-use crate::syntax::parser::ParserError::UnexpectedToken;
 use crate::syntax::rule::{get_infix_rule, get_precedence, get_prefix_rule, Precedence};
 use crate::syntax::token::{Keyword, Token, TokenType};
 use std::fmt;
 use std::fmt::Display;
-use crate::syntax::token::TokenType::Semicolon;
+use crate::syntax::morpher::morph;
 
 #[derive(Debug, PartialEq)]
 pub struct ModuleAst {
@@ -37,6 +36,7 @@ pub struct GreenParser<'a> {
 impl<'a> GreenParser<'a> {
     fn new(source: &'a str) -> Self {
         let mut tokens = Lexer::parse(source).unwrap();
+        tokens = morph(tokens);
         tokens.reverse();
 
         GreenParser { tokens }
@@ -47,35 +47,37 @@ impl<'a> GreenParser<'a> {
 
         let mut exprs = vec![];
         while !parser.match_(TokenType::EOF)? {
+            parser.skip_lines();
+
             exprs.push(parser.parse_top_level_expression()?);
         }
 
         Ok(ModuleAst::new(exprs))
     }
 
-    // Green doesn't have statements but "top-level" expressions.
     fn parse_top_level_expression(&mut self) -> Result<Expr> {
         match self.peek_type()? {
             TokenType::Keyword(Keyword::Import) => self.parse_import(),
             TokenType::Keyword(Keyword::Print) => self.parse_print(),
-            TokenType::Keyword(Keyword::Fun) => self.declare_def(),
-            TokenType::Keyword(Keyword::Var) => self.declare_var(true),
-            TokenType::Keyword(Keyword::Val) => self.declare_var(false),
-            TokenType::LeftBrace => self.parse_block(),
+            TokenType::Keyword(Keyword::Def) => self.declare_def(),
+            TokenType::Keyword(Keyword::Var) => self.declare_var(),
             TokenType::Keyword(Keyword::If) => self.parse_if(),
             TokenType::Keyword(Keyword::While) => self.parse_while(),
             TokenType::Keyword(Keyword::For) => self.parse_for(),
             TokenType::Keyword(Keyword::Return) => self.parse_return(),
-            _ => {
-                let expr = self.parse_expression();
-                self.expect(TokenType::Semicolon)?;
-                expr
-            },
+            TokenType::Keyword(Keyword::Do) => self.parse_block(),
+            _ => Ok(self.parse_expression_statement()?),
         }
     }
 
+    pub fn parse_expression_statement(&mut self) -> Result<Expr> {
+        let expr = self.parse_expression()?;
+        self.expect(TokenType::Line)?;
+        Ok(expr)
+    }
+
     pub fn parse_expression(&mut self) -> Result<Expr> {
-        self.parse_precedence(Precedence::None)
+        self.parse_precedence(Precedence::Assignment)
     }
 
     pub fn parse_precedence(&mut self, precedence: Precedence) -> Result<Expr> {
@@ -92,7 +94,7 @@ impl<'a> GreenParser<'a> {
                 Ok(left)
             }
         } else {
-            Err(UnexpectedToken(token.token_type))
+            Err(ParserError::UnexpectedToken(token.token_type))
         }
     }
 
@@ -123,9 +125,9 @@ impl<'a> GreenParser<'a> {
 
         // Consume tokens till end of line; this is the path of the module.
         let mut module_path = String::new();
-        // while !self.match_(TokenType::Line)? {
-        //     module_path.push_str(self.consume()?.source);
-        // }
+        while !self.match_(TokenType::Line)? {
+            module_path.push_str(self.consume()?.source);
+        }
 
         let import_expr = ImportExpr::new(module_path.to_string());
         Ok(Expr::import(import_expr))
@@ -133,13 +135,12 @@ impl<'a> GreenParser<'a> {
 
     fn parse_print(&mut self) -> Result<Expr> {
         self.expect(TokenType::Keyword(Keyword::Print))?;
-        let expr = self.parse_expression()?;
-        self.expect(TokenType::Semicolon);
+        let expr = self.parse_expression_statement()?;
         Ok(Expr::print(PrintExpr::new(expr)))
     }
 
     fn declare_def(&mut self) -> Result<Expr> {
-        self.expect(TokenType::Keyword(Keyword::Fun));
+        self.consume()?;
 
         let identifier = self.expect(TokenType::Identifier)?;
 
@@ -149,13 +150,10 @@ impl<'a> GreenParser<'a> {
         while !self.match_(TokenType::RightParen)?
             && !self.match_(TokenType::EOF)? {
             let param = self.expect(TokenType::Identifier)?;
-            self.expect(TokenType::Colon)?;
-            let param_type = self.expect(TokenType::Identifier)?;
 
-            // TODO Pass type_system
             parameters.push(Variable::new(param.source.to_string()));
 
-            if self.match_(TokenType::Comma)? {
+            if self.check(TokenType::Comma)? {
                 self.consume()?;
             } else {
                 break;
@@ -163,11 +161,6 @@ impl<'a> GreenParser<'a> {
         }
 
         self.expect(TokenType::RightParen)?;
-
-        // TODO Check if fun has return type_system
-        self.expect(TokenType::Arrow);
-
-        let return_type = self.expect(TokenType::Identifier)?;
 
         let body = self.parse_block()?.node.block().unwrap(); // TODO Unwrap
 
@@ -179,42 +172,20 @@ impl<'a> GreenParser<'a> {
         ))))
     }
 
-    fn declare_var(&mut self, mutable: bool) -> Result<Expr> {
+    fn declare_var(&mut self) -> Result<Expr> {
         self.consume()?; // Consume "var"
 
         let identifier = self.expect(TokenType::Identifier)?;
         let var = Variable::new(identifier.source.to_string());
 
-        let mut initializer = Expr::new(ExprKind::Literal(LiteralExpr::Nil));
-
-        // Var has initializer
-        if self.match_(TokenType::Equal)? {
-            // Consume '=' operator
-            self.consume()?;
-
-            initializer = self.parse_expression()?;
-        }
-
-        self.expect(TokenType::Semicolon)?;
-
-        Ok(Expr::var_assign(VarAssignExpr::new(var, initializer)))
-    }
-
-    pub fn parse_var(&mut self, identifier: Token) -> Result<Expr> {
-        let var = Variable::new(identifier.source.to_string());
-
-        // Var has initializer
-        let expr_kind = if self.match_(TokenType::Equal)? {
-            // Pop '=' operator
-            self.consume()?;
-
-            let initializer = self.parse_expression()?;
-            ExprKind::VarSet(VarSetExpr::new(var, initializer))
+        let initializer = if self.match_(TokenType::Equal)? {
+            self.parse_expression_statement()?
         } else {
-            ExprKind::VarGet(VarGetExpr::new(var))
+            self.expect(TokenType::Line)?;
+            Expr::nil()
         };
 
-        Ok(Expr::new(expr_kind))
+        Ok(Expr::var_assign(VarAssignExpr::new(var, initializer)))
     }
 
     fn parse_if(&mut self) -> Result<Expr> {
@@ -224,14 +195,12 @@ impl<'a> GreenParser<'a> {
         let then = self.parse_block()?.node.block().unwrap();
 
         let expr_kind = if self.match_(TokenType::Keyword(Keyword::Else))? {
-            self.consume()?;
-
             let else_clause = self.parse_block()?.node.block().unwrap(); // TODO Unwrap
 
             ExprKind::IfElse(IfElseExpr::new(cond, then, else_clause))
         } else {
             ExprKind::If(IfExpr::new(cond, Expr::sequence(
-                SequenceExpr::new(then.exprs))
+                SequenceExpr::new(then.exprs)),
             ))
         };
 
@@ -244,10 +213,7 @@ impl<'a> GreenParser<'a> {
 
         let body = self.parse_block()?;
 
-        let test = Expr::while_(WhileExpr::new(cond, body));
-        println!("{:?}", test);
-
-        Ok(test)
+        Ok(Expr::while_(WhileExpr::new(cond, body)))
     }
 
     fn parse_for(&mut self) -> Result<Expr> {
@@ -344,54 +310,71 @@ impl<'a> GreenParser<'a> {
     }
 
     fn parse_block(&mut self) -> Result<Expr> {
-        self.consume()?; // Consume '{'
+        self.consume()?; // Consume 'do'
+
+        self.match_(TokenType::Line)?;
 
         let mut exprs = vec![];
-        while !self.match_(TokenType::RightBrace)? &&
-            !self.match_(TokenType::EOF)?
-        {
+
+        loop {
+            if self.check(TokenType::Keyword(Keyword::End))? ||
+                self.check(TokenType::EOF)? {
+                break;
+            }
+
             exprs.push(self.parse_top_level_expression()?);
         }
 
-        self.expect(TokenType::RightBrace)?;
+        self.expect(TokenType::Keyword(Keyword::End))?;
+        self.expect(TokenType::Line)?;
 
         Ok(Expr::block(BlockExpr::new(exprs)))
     }
 
+    fn skip_lines(&mut self) {
+        while self.check(TokenType::Line).unwrap() { // TODO Unwrap
+            self.consume();
+        }
+    }
+
     pub fn match_(&mut self, token_type: TokenType) -> Result<bool> {
+        if !self.check(token_type)? {
+            return Ok(false);
+        }
+
+        self.consume()?;
+        Ok(true)
+    }
+
+    pub fn check(&mut self, token_type: TokenType) -> Result<bool> {
         Ok(self.peek_type()? == token_type)
     }
 
     fn peek_type(&self) -> Result<TokenType> {
-        // Ok(self.peek()?.token_type)
-        if self.tokens.len() == 0 {
+        if self.tokens.is_empty() {
             return Ok(TokenType::EOF);
         }
         Ok(self.peek()?.token_type)
     }
 
     fn peek(&self) -> Result<&Token<'a>> {
-        // TODO unwrap_or_else
-        match self.tokens.last() {
-            Some(token) => Ok(token),
-            None => Err(ParserError::UnexpectedEOF),
-        }
+        self.tokens.last().ok_or(ParserError::UnexpectedEOF)
     }
 
     pub fn expect(&mut self, expect: TokenType) -> Result<Token<'a>> {
-        if self.match_(expect)? {
+        if self.check(expect)? {
             Ok(self.consume()?)
         } else {
-            Err(ParserError::Expect(expect, self.peek_type()?))
+            Err(ParserError::Expect(
+                expect,
+                self.peek_type()?,
+                self.peek().unwrap().position.line,
+            ))
         }
     }
 
     pub fn consume(&mut self) -> Result<Token<'a>> {
-        // TODO unwrap_or_else
-        match self.tokens.pop() {
-            Some(token) => Ok(token),
-            None => Err(ParserError::UnexpectedEOF),
-        }
+        self.tokens.pop().ok_or(ParserError::UnexpectedEOF)
     }
 
     fn is_empty(&self) -> bool {
@@ -423,10 +406,11 @@ mod test {
         let expect = ModuleAst::new(vec![expected_exprs]);
 
         let input = r#"
-        {
-            print(1);
-            print(5);
-        }"#;
+        do
+            print(1)
+            print(5)
+        end
+        "#;
         let actual = GreenParser::parse(input).unwrap();
 
         assert_eq!(expect, actual);
@@ -445,9 +429,8 @@ mod test {
         let expect = ModuleAst::new(expected_exprs);
 
         let input = r#"
-        var x = 5;
+        var x = 5
         "#;
-
         let actual = GreenParser::parse(input).unwrap();
 
         assert_eq!(expect, actual)
@@ -466,7 +449,7 @@ mod test {
         let expect = ModuleAst::new(expected_exprs);
 
         let input = r#"
-        x = 5;
+        x = 5
         "#;
         let actual = GreenParser::parse(input).unwrap();
 
@@ -486,14 +469,14 @@ mod test {
                 Variable::new("y".to_string()),
                 Expr::var_get(VarGetExpr::new(
                     Variable::new("x".to_string())
-                ))
+                )),
             )),
         ];
         let expect = ModuleAst::new(expected_exprs);
 
         let input = r#"
-        var x = 5;
-        var y = x;
+        var x = 5
+        var y = x
         "#;
         let actual = GreenParser::parse(input).unwrap();
 
@@ -509,7 +492,7 @@ mod test {
                 Expr::binary(BinaryExpr::new(
                     Expr::literal(LiteralExpr::Number(10.0)),
                     Expr::literal(LiteralExpr::Number(5.0)),
-                    BinaryOperator::GreaterThan
+                    BinaryOperator::GreaterThan,
                 )),
                 BlockExpr::new(empty_vec),
                 BlockExpr::new(empty_vec2),
@@ -518,9 +501,9 @@ mod test {
         let expect = ModuleAst::new(expected_exprs);
 
         let input = r#"
-        if 10 > 5 {
-        } else {
-        }
+        if 10 > 5 do
+        else
+        end
         "#;
         let actual = GreenParser::parse(input).unwrap();
 
@@ -529,18 +512,31 @@ mod test {
 
     #[test]
     fn parse_import() {
+        let expected_exprs = vec![
+            Expr::import(ImportExpr::new(
+                "foo.bar".to_string(),
+            )),
+            Expr::import(ImportExpr::new(
+                "util".to_string(),
+            )),
+            Expr::import(ImportExpr::new(
+                "..bar.foo".to_string(),
+            )),
+        ];
+        let expect = ModuleAst::new(expected_exprs);
+
         let input = r#"
         import foo.bar
         import util
         import ..bar.foo
         "#;
+        let actual = GreenParser::parse(input).unwrap();
 
-        let exprs = GreenParser::parse(input);
-        println!("{:?}", exprs);
+        assert_eq!(expect, actual);
     }
 
     #[test]
-    fn parse_fun() {
+    fn parse_def() {
         let expected_exprs = vec![
             Expr::new(ExprKind::Function(FunctionExpr::new(
                 Variable::new("double".to_string()),
@@ -555,19 +551,19 @@ mod test {
                                     Variable::new("x".to_string())
                                 )),
                                 Expr::literal(LiteralExpr::Number(2.0)),
-                                BinaryOperator::Multiply
+                                BinaryOperator::Multiply,
                             ))),
                         ))
-                    ])
-                )
+                    ]),
+                ),
             )))
         ];
         let expect = ModuleAst::new(expected_exprs);
 
         let input = r#"
-        fun double(x: Int) -> Int {
-            return x * 2;
-        }
+        def double(x)
+            return x * 2
+        end
         "#;
         let actual = GreenParser::parse(input).unwrap();
 
@@ -576,14 +572,45 @@ mod test {
 
     #[test]
     fn parse_while() {
+        let expected_exprs = vec![
+            Expr::var_assign(VarAssignExpr::new(
+                Variable::new("x".to_string()),
+                Expr::literal(LiteralExpr::Number(0.0)),
+            )),
+            Expr::while_(WhileExpr::new(
+                Expr::binary(BinaryExpr::new(
+                    Expr::var_get(VarGetExpr::new(
+                        Variable::new("x".to_string()),
+                    )),
+                    Expr::literal(LiteralExpr::Number(10.0)),
+                    BinaryOperator::LessThan,
+                )),
+                Expr::block(BlockExpr::new(
+                    vec![
+                        Expr::var_set(VarSetExpr::new(
+                            Variable::new("x".to_string()),
+                            Expr::binary(BinaryExpr::new(
+                                Expr::var_get(VarGetExpr::new(
+                                    Variable::new("x".to_string()),
+                                )),
+                                Expr::literal(LiteralExpr::Number(1.0)),
+                                BinaryOperator::Add,
+                            ))
+                        ))
+                    ]
+                ))
+            ))
+        ];
+        let expect = ModuleAst::new(expected_exprs);
+
         let input = r#"
         var x = 0;
-        while x < 10 {
-            x = x + 1;
-        }
+        while x < 10 do
+            x = x + 1
+        end
         "#;
+        let actual = GreenParser::parse(input).unwrap();
 
-        let exprs = GreenParser::parse(input);
-        println!("{:#?}", exprs);
+        assert_eq!(expect, actual);
     }
 }

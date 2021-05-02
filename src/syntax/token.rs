@@ -1,10 +1,10 @@
 use std::str::FromStr;
 
 #[derive(Debug, Copy, Clone)]
-pub struct Token<'a> {
+pub struct Token<'a> { // TODO Use getters
     pub token_type: TokenType,
     pub source: &'a str,
-    position: Position,
+    pub position: Position,
 }
 
 impl<'a> Token<'a> {
@@ -27,7 +27,7 @@ impl PartialEq for Token<'_> {
 pub struct Position {
     start: usize,
     end: usize,
-    line: usize,
+    pub line: usize, // TODO Use getters
 }
 
 impl Position {
@@ -51,6 +51,8 @@ pub enum TokenType {
     Plus,
     Percent,
     Star,
+
+    Line,
 
     // One or two character tokens
     Bang,
@@ -92,9 +94,8 @@ pub enum Keyword {
     Print,
     Do,
     End,
-    Fun,
+    Def,
     Var,
-    Val,
     If,
     Else,
     Then,
@@ -119,9 +120,8 @@ impl FromStr for Keyword {
             "print" => Ok(Keyword::Print),
             "do" => Ok(Keyword::Do),
             "end" => Ok(Keyword::End),
-            "fun" => Ok(Keyword::Fun),
+            "def" => Ok(Keyword::Def),
             "var" => Ok(Keyword::Var),
-            "val" => Ok(Keyword::Val),
             "if" => Ok(Keyword::If),
             "else" => Ok(Keyword::Else),
             "then" => Ok(Keyword::Then),
