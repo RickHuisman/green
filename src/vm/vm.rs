@@ -24,7 +24,7 @@ impl VM {
         }
     }
 
-    pub fn interpret(&mut self, source: &str) {
+    pub fn interpret(&mut self, source: &str) { // TODO Result
         let module = match GreenParser::parse(source) {
             Ok(m) => m,
             Err(err) => {
@@ -191,8 +191,8 @@ impl VM {
 
     fn get_local(&mut self) {
         let start = *self.frame().stack_start();
-        let idx = self.read_byte() as usize;
-        let val = self.stack[start + idx].clone(); // Clone???
+        let slot = self.read_byte() as usize;
+        let val = self.stack[start + slot].clone();
         self.push(val);
     }
 
@@ -201,8 +201,8 @@ impl VM {
         // the assignment occurs.
         let val = self.peek();
         let start = *self.frame().stack_start();
-        let idx = self.read_byte() as usize;
-        self.stack[start + idx] = val;
+        let slot = self.read_byte() as usize;
+        self.stack[start + slot] = val;
     }
 
     fn call_instruction(&mut self) {
@@ -216,6 +216,7 @@ impl VM {
     fn closure(&mut self) {
         let fun = self.read_constant().as_function();
         let closure = GreenClosure::new(fun);
+
         self.push(Value::Obj(Object::Closure(closure)));
     }
 

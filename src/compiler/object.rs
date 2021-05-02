@@ -15,7 +15,7 @@ impl Display for Object {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Object::String(s) => write!(f, "{}", s),
-            Object::Array(a) => write!(f, "{:?}", a), // TODO
+            Object::Array(a) => write!(f, "{:?}", a),
             Object::Closure(c) => write!(f, "<fn {}>", c.function.name),
             Object::Function(fun) => write!(f, "<fn {}>", fun.name),
         }

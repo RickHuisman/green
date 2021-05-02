@@ -1,3 +1,3 @@
 pub mod repl;
-mod inference;
+mod infer;
 mod ast;
