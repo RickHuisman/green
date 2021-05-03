@@ -2,6 +2,7 @@ use crate::compiler::chunk::Chunk;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use crate::compiler::value::Value;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub enum Object {
@@ -9,6 +10,8 @@ pub enum Object {
     Array(Vec<Value>), // TODO u32? Vec?
     Closure(GreenClosure),
     Function(GreenFunction),
+    Class(Class),
+    Instance(Instance),
 }
 
 impl Display for Object {
@@ -18,6 +21,8 @@ impl Display for Object {
             Object::Array(a) => write!(f, "{:?}", a),
             Object::Closure(c) => write!(f, "<fn {}>", c.function.name),
             Object::Function(fun) => write!(f, "<fn {}>", fun.name),
+            Object::Class(cls) => write!(f, "{}", cls.name),
+            Object::Instance(i) => write!(f, "{} instance", i.class.name),
         }
     }
 }
@@ -86,5 +91,43 @@ impl Into<Object> for &str {
 impl Into<Object> for String {
     fn into(self) -> Object {
         Object::String(self)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Class {
+    name: String,
+}
+
+impl Class {
+    pub fn new(name: String) -> Self {
+        Class { name }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Instance {
+    pub class: Class,
+    pub fields: HashMap<String, Value>,
+}
+
+impl Instance {
+    pub fn new(class: Class) -> Self {
+        Instance {
+            class,
+            fields: HashMap::new()
+        }
+    }
+
+    pub fn get_property(&self, name: &str) -> Option<Value> {
+        self.fields.get(name).cloned()
+    }
+
+    pub fn set_property(&mut self, property: &str, value: Value) {
+        if let Some(v) = self.fields.get_mut(property) {
+            *v = value;
+        } else {
+            self.fields.insert(property.to_string(), value);
+        }
     }
 }

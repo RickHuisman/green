@@ -1,5 +1,5 @@
 use crate::error::ParserError;
-use crate::syntax::expr::{BinaryExpr, BinaryOperator, CallExpr, Expr, ExprKind, GroupingExpr, LiteralExpr, UnaryExpr, UnaryOperator, ArrayExpr, SubscriptExpr, Variable, VarSetExpr, VarGetExpr};
+use crate::syntax::expr::{BinaryExpr, BinaryOperator, CallExpr, Expr, ExprKind, GroupingExpr, LiteralExpr, UnaryExpr, UnaryOperator, ArrayExpr, SubscriptExpr, Variable, VarSetExpr, VarGetExpr, GetExpr, SetExpr};
 use crate::syntax::parser::GreenParser;
 use crate::syntax::token::{Keyword, Token, TokenType};
 use std::collections::HashMap;
@@ -104,6 +104,9 @@ pub fn get_infix_rule(token_type: &TokenType) -> Option<Box<dyn InfixParser>> {
     let mut map3 = HashMap::new();
     map3.insert(TokenType::LeftBracket, SubscriptParser::new());
 
+    let mut map4 = HashMap::new();
+    map4.insert(TokenType::Dot, DotParser::new());
+
     if let Some(token_type) = map.get(&token_type) {
         Some(Box::new(*token_type))
     } else {
@@ -113,7 +116,11 @@ pub fn get_infix_rule(token_type: &TokenType) -> Option<Box<dyn InfixParser>> {
             if let Some(token_type) = map3.get(&token_type) {
                 Some(Box::new(*token_type))
             } else {
-                None
+                if let Some(token_type) = map4.get(&token_type) {
+                    Some(Box::new(*token_type))
+                } else {
+                    None
+                }
             }
         }
     }
@@ -234,7 +241,7 @@ impl CallParser {
 impl InfixParser for CallParser {
     fn parse<'a>(&self, parser: &mut GreenParser, left: Expr, token: Token<'a>) -> Result<Expr> {
         let mut args = vec![];
-        if !parser.match_(TokenType::RightParen)? {
+        if !parser.check(TokenType::RightParen)? {
             args.push(parser.parse_expression()?);
             while parser.match_(TokenType::Comma)? {
                 parser.consume()?;
@@ -340,5 +347,41 @@ impl PrefixParser for ArrayParser {
         parser.expect(TokenType::RightBracket)?;
 
         Ok(Expr::new(ExprKind::Array(ArrayExpr::new(Some(exprs)))))
+    }
+}
+
+#[derive(Copy, Clone)]
+struct DotParser;
+
+impl DotParser {
+    pub fn new() -> Self {
+        DotParser {}
+    }
+}
+
+impl InfixParser for DotParser {
+    fn parse<'a>(&self, parser: &mut GreenParser, left: Expr, token: Token<'a>) -> Result<Expr> {
+        let property_token = parser.expect(TokenType::Identifier)?;
+        let property = property_token.source;
+
+        if parser.match_(TokenType::Equal)? {
+            let value = parser.parse_expression()?;
+            Ok(Expr::set_property(SetExpr::new(left, value, property.to_string())))
+        } else {
+            Ok(Expr::get_property(GetExpr::new(left, property.to_string())))
+        }
+
+        // uint8_t name = identifierConstant(&parser.previous);
+        //
+        // if (canAssign && match(TOKEN_EQUAL)) {
+        //     expression();
+        //     emitBytes(OP_SET_PROPERTY, name);
+        // } else {
+        //     emitBytes(OP_GET_PROPERTY, name);
+        // }
+    }
+
+    fn get_precedence(&self) -> Precedence {
+        Precedence::Call
     }
 }

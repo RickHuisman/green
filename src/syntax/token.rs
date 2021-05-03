@@ -102,7 +102,7 @@ pub enum Keyword {
     True,
     False,
     Return,
-    Struct,
+    Class,
 }
 
 impl FromStr for Keyword {
@@ -128,7 +128,7 @@ impl FromStr for Keyword {
             "true" => Ok(Keyword::True),
             "false" => Ok(Keyword::False),
             "return" => Ok(Keyword::Return),
-            "struct" => Ok(Keyword::Struct),
+            "class" => Ok(Keyword::Class),
             _ => Err(()),
         }
     }

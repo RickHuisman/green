@@ -119,6 +119,9 @@ fn disassemble_instruction(f: &mut Formatter<'_>, chunk: &Chunk, offset: &mut us
         Opcode::NewArray => byte_instruction(chunk, f, "OP_NEW_ARRAY", offset),
         Opcode::IndexSubscript => simple_instruction(f, "OP_INDEX_SUBSCRIPT", offset), // TODO
         Opcode::StoreSubscript => simple_instruction(f, "OP_STORE_SUBSCRIPT", offset), // TODO
+        Opcode::Class => constant_instruction(chunk, f, "OP_CLASS", offset),
+        Opcode::GetProperty => constant_instruction(chunk, f, "OP_GET_PROPERTY", offset),
+        Opcode::SetProperty => constant_instruction(chunk, f, "OP_SET_PROPERTY", offset),
     }
 }
 

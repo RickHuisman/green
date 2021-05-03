@@ -1,10 +1,10 @@
-use crate::compiler::object::{GreenClosure, GreenFunction, Object};
+use crate::compiler::object::{GreenClosure, GreenFunction, Object, Instance};
 use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone)] // TODO Implement Copy
 pub enum Value {
     Number(f64),
     True,
@@ -27,6 +27,7 @@ impl Value {
     }
 
     // TODO Find a better way to convert Value::Obj(Obj::String()) to String
+    // TODO Use Result<T>
     pub fn as_string(self) -> String {
         match self {
             Value::Obj(s) => match s {
@@ -45,6 +46,21 @@ impl Value {
                 _ => panic!("TODO"), // TODO
             },
             _ => panic!("TODO"), // TODO
+        }
+    }
+
+    pub fn as_object(self) -> Object {
+        // FIXME
+        match self {
+            Value::Obj(obj) => obj,
+            _ => todo!(), // TODO
+        }
+    }
+
+    pub fn as_instance(self) -> Instance {
+        match self.as_object() {
+            Object::Instance(i) => i,
+            _ => todo!(),
         }
     }
 
@@ -76,6 +92,19 @@ impl Value {
                 }
             },
             _ => panic!("TODO"), // TODO
+        }
+    }
+
+    pub fn is_instance(&self) -> bool {
+        // TODO
+        match self {
+            Value::Obj(o) => {
+                match o {
+                    Object::Instance(i) => true,
+                    _ => false
+                }
+            }
+            _ => false
         }
     }
 }

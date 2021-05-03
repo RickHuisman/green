@@ -1,6 +1,6 @@
 use crate::compiler::chunk::Chunk;
 use crate::compiler::compiler::Compiler;
-use crate::compiler::object::{GreenClosure, Object};
+use crate::compiler::object::{GreenClosure, Object, Class, Instance};
 use crate::compiler::opcode::Opcode;
 use crate::compiler::value::Value;
 use crate::syntax::parser::{GreenParser, ModuleAst};
@@ -72,6 +72,9 @@ impl VM {
                 Opcode::NewArray => self.new_array(),
                 Opcode::IndexSubscript => self.index_subscript(),
                 Opcode::StoreSubscript => self.store_subscript(),
+                Opcode::Class => self.class(),
+                Opcode::GetProperty => self.get_property(),
+                Opcode::SetProperty => self.set_property(),
             }
         }
     }
@@ -145,20 +148,22 @@ impl VM {
 
     fn define_global(&mut self) {
         let name = self.read_constant().as_string();
-        let val = self.peek();
-        self.globals.insert(name, val);
+        let value = self.peek();
+        self.globals.insert(name, value);
         self.pop();
     }
 
     fn get_global(&mut self) {
         let name = self.read_constant().as_string();
         let value = self.globals.get(&name).cloned();
+
         self.push(value.unwrap());
     }
 
     fn set_global(&mut self) {
         let name = self.read_constant().as_string();
         let peek = self.peek();
+
         if let Some(global) = self.globals.get_mut(&name) {
             *global = peek;
         } else {
@@ -170,7 +175,6 @@ impl VM {
         let offset = self.read_short();
 
         if !bool::from(self.peek()) {
-            // TODO
             *self.frame_mut().ip_mut() += offset as usize;
         }
     }
@@ -192,17 +196,15 @@ impl VM {
     fn get_local(&mut self) {
         let start = *self.frame().stack_start();
         let slot = self.read_byte() as usize;
-        let val = self.stack[start + slot].clone();
-        self.push(val);
+        let value = self.stack[start + slot].clone();
+        self.push(value);
     }
 
     fn set_local(&mut self) {
-        // We peek because we would just push it back after
-        // the assignment occurs.
-        let val = self.peek();
+        let value = self.peek();
         let start = *self.frame().stack_start();
         let slot = self.read_byte() as usize;
-        self.stack[start + slot] = val;
+        self.stack[start + slot] = value;
     }
 
     fn call_instruction(&mut self) {
@@ -236,7 +238,22 @@ impl VM {
     }
 
     fn call_value(&mut self, callee: Value, arity: u8) {
-        self.call(callee.as_closure(), arity);
+        match callee.as_object() {
+            Object::Closure(c) => {
+                self.call(c, arity);
+            }
+            Object::Class(c) => {
+                let instance = Value::Obj(Object::Instance(Instance::new(c)));
+
+                // let frame_start = last - (arity + 1) as usize;
+
+                let stack_top = self.stack.len() - (arity + 1) as usize;
+                // let stack_top = 2 as usize;
+                self.push(instance);
+                // self.stack[stack_top] = instance;
+            }
+            _ => panic!("Can only call functions"),
+        }
     }
 
     fn loop_(&mut self) {
@@ -281,6 +298,60 @@ impl VM {
         self.push(Value::Obj(Object::Array(result)));
     }
 
+    fn class(&mut self) {
+        let name = self.read_constant().as_string();
+        let class = Value::Obj(Object::Class(Class::new(name)));
+        self.push(class);
+    }
+
+    fn get_property(&mut self) {
+        if !self.peek().is_instance() {
+            panic!("Only instances have properties.");
+        }
+
+        let instance = self.pop().as_instance();
+        let name = self.read_constant().as_string();
+
+        if let Some(value) = instance.fields.get(&name) {
+            self.push(value.clone());
+        } else {
+            panic!("Undefined property '{}'.", name);
+        }
+    }
+
+    fn set_property(&mut self) {
+        let value = self.stack.pop().unwrap();
+
+        // let mut instance = self.stack.pop().unwrap().as_instance();
+        match self.stack.pop() {
+            None => {}
+            Some(Value::Obj(Object::Instance(mut i))) => {
+                let var_str = self.read_string();
+
+                i.fields.insert(var_str.to_string(), value.clone());
+                self.push(value);
+            }
+            _ => todo!(),
+        }
+
+        // Stack before: [instance, value, property] and after: [index(array, index)] TODO After
+        // let property = self.read_constant().as_string();
+        //
+        // let mut instance = self.peek_offset(1).as_instance();
+        // let value = self.peek();
+        //
+        // instance.set_property(&property, value);
+        // println!("{:?}", &instance);
+        //
+        // let value2 = self.pop();
+        // self.pop();
+        // self.push(value2);
+    }
+
+    fn read_string(&mut self) -> String {
+       self.read_constant().as_string()
+    }
+
     fn read_constant(&mut self) -> Value {
         let constant_index = self.read_byte();
         self.current_chunk_mut().constants()[constant_index as usize].clone()
@@ -314,6 +385,11 @@ impl VM {
 
     fn peek(&mut self) -> Value {
         self.stack.last().expect("stack to be nonempty").clone()
+    }
+
+    fn peek_offset(&mut self, offset: usize) -> Value {
+        let index = self.stack.len() - 1 - offset;
+        self.stack[index as usize].clone()
     }
 
     fn pop(&mut self) -> Value {

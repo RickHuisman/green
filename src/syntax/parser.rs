@@ -1,10 +1,6 @@
 use crate::error::ParserError;
 use crate::syntax::expr::ExprKind::{Binary, Literal};
-use crate::syntax::expr::{
-    BinaryExpr, BinaryOperator, BlockExpr, Expr, ExprKind, FunctionDeclaration, FunctionExpr,
-    IfElseExpr, IfExpr, ImportExpr, LiteralExpr, PrintExpr, ReturnExpr, SequenceExpr,
-    VarAssignExpr, VarGetExpr, VarSetExpr, Variable, WhileExpr,
-};
+use crate::syntax::expr::{BinaryExpr, BinaryOperator, BlockExpr, Expr, ExprKind, FunctionDeclaration, FunctionExpr, IfElseExpr, IfExpr, ImportExpr, LiteralExpr, PrintExpr, ReturnExpr, SequenceExpr, VarAssignExpr, VarGetExpr, VarSetExpr, Variable, WhileExpr, ClassExpr};
 use crate::syntax::lexer::Lexer;
 use crate::syntax::rule::{get_infix_rule, get_precedence, get_prefix_rule, Precedence};
 use crate::syntax::token::{Keyword, Token, TokenType};
@@ -66,6 +62,7 @@ impl<'a> GreenParser<'a> {
             TokenType::Keyword(Keyword::For) => self.parse_for(),
             TokenType::Keyword(Keyword::Return) => self.parse_return(),
             TokenType::Keyword(Keyword::Do) => self.parse_block(),
+            TokenType::Keyword(Keyword::Class) => self.parse_class(),
             _ => Ok(self.parse_expression_statement()?),
         }
     }
@@ -317,10 +314,14 @@ impl<'a> GreenParser<'a> {
         let mut exprs = vec![];
 
         loop {
-            if self.check(TokenType::Keyword(Keyword::End))? ||
-                self.check(TokenType::EOF)? {
+            if let TokenType::Keyword(Keyword::End) = self.peek_type()? {
                 break;
             }
+
+            // if self.check(TokenType::Keyword(Keyword::End))? ||
+            //     self.check(TokenType::EOF)? {
+            //     break;
+            // }
 
             exprs.push(self.parse_top_level_expression()?);
         }
@@ -329,6 +330,18 @@ impl<'a> GreenParser<'a> {
         self.expect(TokenType::Line)?;
 
         Ok(Expr::block(BlockExpr::new(exprs)))
+    }
+
+    fn parse_class(&mut self) -> Result<Expr> {
+        self.consume()?; // Consume 'class'
+
+        let class_name = self.expect(TokenType::Identifier)?.source;
+        self.expect(TokenType::Line)?;
+
+        self.expect(TokenType::Keyword(Keyword::End))?;
+        self.expect(TokenType::Line)?;
+
+        Ok(Expr::class(ClassExpr::new(Variable::new(class_name.to_string()))))
     }
 
     fn skip_lines(&mut self) {
@@ -385,7 +398,7 @@ impl<'a> GreenParser<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::syntax::expr::GroupingExpr;
+    use crate::syntax::expr::{GroupingExpr, ClassExpr};
 
     #[test]
     fn parse_block() {
@@ -607,6 +620,24 @@ mod test {
         var x = 0;
         while x < 10 do
             x = x + 1
+        end
+        "#;
+        let actual = GreenParser::parse(input).unwrap();
+
+        assert_eq!(expect, actual);
+    }
+
+    #[test]
+    fn parse_class() {
+        let expected_exprs = vec![
+            Expr::class(ClassExpr::new(
+                Variable::new("Point".to_string()),
+            ))
+        ];
+        let expect = ModuleAst::new(expected_exprs);
+
+        let input = r#"
+        class Point
         end
         "#;
         let actual = GreenParser::parse(input).unwrap();

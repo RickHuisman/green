@@ -74,8 +74,20 @@ impl Expr {
         Expr::new(ExprKind::Return(return_expr))
     }
 
+    pub fn get_property(get_property: GetExpr) -> Self {
+        Expr::new(ExprKind::GetProperty(get_property))
+    }
+
+    pub fn set_property(set_property: SetExpr) -> Self {
+        Expr::new(ExprKind::SetProperty(set_property))
+    }
+
     pub fn nil() -> Expr {
         Expr::new(ExprKind::Literal(LiteralExpr::Nil))
+    }
+
+    pub fn class(class_expr: ClassExpr) -> Expr {
+        Expr::new(ExprKind::Class(class_expr))
     }
 }
 
@@ -95,9 +107,12 @@ pub enum ExprKind {
     If(IfExpr),
     IfElse(IfElseExpr),
     Function(FunctionExpr),
+    Class(ClassExpr),
     Call(CallExpr),
     While(WhileExpr),
     Return(ReturnExpr),
+    GetProperty(GetExpr),
+    SetProperty(SetExpr),
     Array(ArrayExpr),
     Subscript(SubscriptExpr),
 }
@@ -124,6 +139,9 @@ impl Compile for ExprKind {
             ExprKind::Return(r) => r.compile(compiler),
             ExprKind::Array(a) => a.compile(compiler),
             ExprKind::Subscript(s) => s.compile(compiler),
+            ExprKind::Class(c) => c.compile(compiler),
+            ExprKind::GetProperty(g) => g.compile(compiler),
+            ExprKind::SetProperty(s) => s.compile(compiler),
         }
     }
 }
@@ -603,6 +621,30 @@ impl Compile for FunctionExpr {
 }
 
 #[derive(PartialEq, Debug)]
+pub struct ClassExpr {
+    pub name: Variable,
+}
+
+impl ClassExpr {
+    pub fn new(name: Variable) -> Self {
+        ClassExpr { name }
+    }
+}
+
+impl Compile for ClassExpr {
+    fn compile(&self, compiler: &mut Compiler) {
+        let name_constant = compiler
+            .current_chunk()
+            .add_constant(Value::string(self.name.name.to_string()));
+        compiler.compile_declare_var(&self.name);
+
+        compiler.emit(Opcode::Class);
+        compiler.emit_byte(name_constant);
+        compiler.compile_define_var(&self.name);
+    }
+}
+
+#[derive(PartialEq, Debug)]
 pub struct WhileExpr {
     pub condition: Expr,
     pub body: Expr,
@@ -736,5 +778,57 @@ impl Compile for SubscriptExpr {
         } else {
             compiler.emit(Opcode::IndexSubscript);
         }
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct GetExpr {
+    expr: Expr, // TODO Rename
+    property: String,
+}
+
+impl GetExpr {
+    pub fn new(expr: Expr, property: String) -> Self {
+        GetExpr { expr, property }
+    }
+}
+
+impl Compile for GetExpr {
+    fn compile(&self, compiler: &mut Compiler) {
+        compiler.compile_expr(&self.expr);
+
+        compiler.emit(Opcode::GetProperty);
+
+        let property_constant = compiler
+            .current_chunk()
+            .add_constant(Value::string(self.property.to_string()));
+        compiler.emit_byte(property_constant);
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct SetExpr {
+    lhs: Expr,
+    rhs: Expr,
+    property: String,
+}
+
+impl SetExpr {
+    pub fn new(lhs: Expr, rhs: Expr, property: String) -> Self {
+        SetExpr { lhs, rhs, property }
+    }
+}
+
+impl Compile for SetExpr {
+    fn compile(&self, compiler: &mut Compiler) {
+        compiler.compile_expr(&self.lhs);
+        compiler.compile_expr(&self.rhs);
+
+        compiler.emit(Opcode::SetProperty);
+
+        let property_constant = compiler
+            .current_chunk()
+            .add_constant(Value::string(self.property.to_string()));
+        compiler.emit_byte(property_constant);
     }
 }

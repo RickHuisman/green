@@ -31,6 +31,10 @@ pub enum Opcode {
     NewArray,
     IndexSubscript,
     StoreSubscript,
+
+    Class,
+    GetProperty,
+    SetProperty,
 }
 
 impl From<u8> for Opcode {
@@ -63,6 +67,9 @@ impl From<u8> for Opcode {
             0x18 => Opcode::NewArray,
             0x19 => Opcode::IndexSubscript,
             26 => Opcode::StoreSubscript, // TODO
+            27 => Opcode::Class, // TODO
+            28 => Opcode::GetProperty, // TODO
+            29 => Opcode::SetProperty, // TODO
             _ => panic!("No opcode for byte: {}", byte),
         }
     }

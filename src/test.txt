@@ -1,3 +1,6 @@
-var x = [0, 1, 2];
-x[0] = 5;
-print(x);
+class Point
+end
+
+var point = Point()
+point.x = 5
+print(point.x)
