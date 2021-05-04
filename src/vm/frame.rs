@@ -1,14 +1,15 @@
 use crate::compiler::object::GreenClosure;
+use crate::vm::obj::Gc;
 
 #[derive(Clone)]
 pub struct CallFrame {
-    closure: GreenClosure,
+    closure: Gc<GreenClosure>,
     ip: usize,
     stack_start: usize,
 }
 
 impl CallFrame {
-    pub fn new(closure: GreenClosure, stack_start: usize) -> Self {
+    pub fn new(closure: Gc<GreenClosure>, stack_start: usize) -> Self {
         CallFrame {
             closure,
             ip: 0,
@@ -16,11 +17,11 @@ impl CallFrame {
         }
     }
 
-    pub fn closure(&self) -> &GreenClosure {
+    pub fn closure(&self) -> &Gc<GreenClosure> {
         &self.closure
     }
 
-    pub fn closure_mut(&mut self) -> &mut GreenClosure {
+    pub fn closure_mut(&mut self) -> &mut Gc<GreenClosure> {
         &mut self.closure
     }
 

@@ -47,6 +47,10 @@ impl Chunk {
         &mut self.code
     }
 
+    pub fn read_constant(&self, index: usize) -> &Value {
+        &self.constants[index]
+    }
+
     pub fn constants(&self) -> &Vec<Value> {
         &self.constants
     }
@@ -83,45 +87,45 @@ fn disassemble_instruction(f: &mut Formatter<'_>, chunk: &Chunk, offset: &mut us
 
     let instruction = Opcode::from(chunk.code[*offset]);
     match instruction {
-        Opcode::Return => simple_instruction(f, "OP_RETURN", offset),
-        Opcode::Constant => constant_instruction(chunk, f, "OP_CONSTANT", offset),
-        Opcode::Add => simple_instruction(f, "OP_ADD", offset),
-        Opcode::Subtract => simple_instruction(f, "OP_SUBTRACT", offset),
-        Opcode::Multiply => simple_instruction(f, "OP_MULTIPLY", offset),
-        Opcode::Divide => simple_instruction(f, "OP_DIVIDE", offset),
-        Opcode::Print => simple_instruction(f, "OP_PRINT", offset),
-        Opcode::Equal => simple_instruction(f, "OP_EQUAL", offset),
-        Opcode::Greater => simple_instruction(f, "OP_GREATER", offset),
-        Opcode::Less => simple_instruction(f, "OP_LESS", offset),
-        Opcode::Not => simple_instruction(f, "OP_NOT", offset),
-        Opcode::Negate => simple_instruction(f, "OP_NOT", offset),
-        Opcode::DefineGlobal => constant_instruction(chunk, f, "OP_DEFINE_GLOBAL", offset),
-        Opcode::GetGlobal => constant_instruction(chunk, f, "OP_GET_GLOBAL", offset),
-        Opcode::SetGlobal => constant_instruction(chunk, f, "OP_SET_GLOBAL", offset),
-        Opcode::JumpIfFalse => jump_instruction(chunk, f, "OP_JUMP_IF_FALSE", 1, offset),
-        Opcode::Jump => jump_instruction(chunk, f, "OP_JUMP", 1, offset),
-        Opcode::Pop => simple_instruction(f, "OP_POP", offset),
-        Opcode::GetLocal => byte_instruction(chunk, f, "OP_GET_LOCAL", offset),
-        Opcode::SetLocal => byte_instruction(chunk, f, "OP_SET_LOCAL", offset),
-        Opcode::Nil => simple_instruction(f, "OP_NIL", offset),
-        Opcode::Call => byte_instruction(chunk, f, "OP_CALL", offset),
+        Opcode::Return => simple_instruction(f, "RETURN", offset),
+        Opcode::Constant => constant_instruction(chunk, f, "CONSTANT", offset),
+        Opcode::Add => simple_instruction(f, "ADD", offset),
+        Opcode::Subtract => simple_instruction(f, "SUBTRACT", offset),
+        Opcode::Multiply => simple_instruction(f, "MULTIPLY", offset),
+        Opcode::Divide => simple_instruction(f, "DIVIDE", offset),
+        Opcode::Print => simple_instruction(f, "PRINT", offset),
+        Opcode::Equal => simple_instruction(f, "EQUAL", offset),
+        Opcode::Greater => simple_instruction(f, "GREATER", offset),
+        Opcode::Less => simple_instruction(f, "LESS", offset),
+        Opcode::Not => simple_instruction(f, "NOT", offset),
+        Opcode::Negate => simple_instruction(f, "NOT", offset),
+        Opcode::DefineGlobal => constant_instruction(chunk, f, "DEFINE_GLOBAL", offset),
+        Opcode::GetGlobal => constant_instruction(chunk, f, "GET_GLOBAL", offset),
+        Opcode::SetGlobal => constant_instruction(chunk, f, "SET_GLOBAL", offset),
+        Opcode::JumpIfFalse => jump_instruction(chunk, f, "JUMP_IF_FALSE", 1, offset),
+        Opcode::Jump => jump_instruction(chunk, f, "JUMP", 1, offset),
+        Opcode::Pop => simple_instruction(f, "POP", offset),
+        Opcode::GetLocal => byte_instruction(chunk, f, "GET_LOCAL", offset),
+        Opcode::SetLocal => byte_instruction(chunk, f, "SET_LOCAL", offset),
+        Opcode::Nil => simple_instruction(f, "NIL", offset),
+        Opcode::Call => byte_instruction(chunk, f, "CALL", offset),
         Opcode::Closure => {
             // TODO
             *offset += 2;
 
             let constant = chunk.code[*offset - 1];
-            write!(f, "{:-16} {:4} ", "OP_CLOSURE", constant);
-            writeln!(f, "'{}'", chunk.constants()[constant as usize]);
+            write!(f, "{:-16} {:4} ", "CLOSURE", constant);
+            writeln!(f, "'{:?}'", chunk.constants()[constant as usize]);
 
             *offset
         }
-        Opcode::Loop => jump_instruction(chunk, f, "OP_LOOP", 0, offset), // TODO sign should be -1
-        Opcode::NewArray => byte_instruction(chunk, f, "OP_NEW_ARRAY", offset),
-        Opcode::IndexSubscript => simple_instruction(f, "OP_INDEX_SUBSCRIPT", offset), // TODO
-        Opcode::StoreSubscript => simple_instruction(f, "OP_STORE_SUBSCRIPT", offset), // TODO
-        Opcode::Class => constant_instruction(chunk, f, "OP_CLASS", offset),
-        Opcode::GetProperty => constant_instruction(chunk, f, "OP_GET_PROPERTY", offset),
-        Opcode::SetProperty => constant_instruction(chunk, f, "OP_SET_PROPERTY", offset),
+        Opcode::Loop => jump_instruction(chunk, f, "LOOP", 0, offset), // TODO sign should be -1
+        Opcode::NewArray => byte_instruction(chunk, f, "NEW_ARRAY", offset),
+        Opcode::IndexSubscript => simple_instruction(f, "INDEX_SUBSCRIPT", offset), // TODO
+        Opcode::StoreSubscript => simple_instruction(f, "STORE_SUBSCRIPT", offset), // TODO
+        Opcode::Class => constant_instruction(chunk, f, "CLASS", offset),
+        Opcode::GetProperty => constant_instruction(chunk, f, "GET_PROPERTY", offset),
+        Opcode::SetProperty => constant_instruction(chunk, f, "SET_PROPERTY", offset),
     }
 }
 
@@ -138,7 +142,7 @@ fn constant_instruction(
 ) -> usize {
     let constant = chunk.code()[*offset + 1];
     write!(f, "{:-16} {:4} ", name, constant);
-    writeln!(f, "'{}'", chunk.constants()[constant as usize]);
+    writeln!(f, "'{:?}'", chunk.constants()[constant as usize]);
     *offset + 2
 }
 

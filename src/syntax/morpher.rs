@@ -23,7 +23,7 @@ pub fn morph(mut tokens: Vec<Token>) -> Vec<Token> {
                     }
                 }
             }
-            _ => morphed.push(token)
+            _ => morphed.push(token),
         }
     }
 

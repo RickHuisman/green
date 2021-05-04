@@ -1,12 +1,16 @@
 use crate::error::ParserError;
 use crate::syntax::expr::ExprKind::{Binary, Literal};
-use crate::syntax::expr::{BinaryExpr, BinaryOperator, BlockExpr, Expr, ExprKind, FunctionDeclaration, FunctionExpr, IfElseExpr, IfExpr, ImportExpr, LiteralExpr, PrintExpr, ReturnExpr, SequenceExpr, VarAssignExpr, VarGetExpr, VarSetExpr, Variable, WhileExpr, ClassExpr};
+use crate::syntax::expr::{
+    BinaryExpr, BinaryOperator, BlockExpr, ClassExpr, Expr, ExprKind, FunctionDeclaration,
+    FunctionExpr, IfElseExpr, IfExpr, ImportExpr, LiteralExpr, PrintExpr, ReturnExpr, SequenceExpr,
+    VarAssignExpr, VarGetExpr, VarSetExpr, Variable, WhileExpr,
+};
 use crate::syntax::lexer::Lexer;
+use crate::syntax::morpher::morph;
 use crate::syntax::rule::{get_infix_rule, get_precedence, get_prefix_rule, Precedence};
 use crate::syntax::token::{Keyword, Token, TokenType};
 use std::fmt;
 use std::fmt::Display;
-use crate::syntax::morpher::morph;
 
 #[derive(Debug, PartialEq)]
 pub struct ModuleAst {
@@ -144,8 +148,7 @@ impl<'a> GreenParser<'a> {
         self.expect(TokenType::LeftParen)?;
 
         let mut parameters = vec![];
-        while !self.match_(TokenType::RightParen)?
-            && !self.match_(TokenType::EOF)? {
+        while !self.match_(TokenType::RightParen)? && !self.match_(TokenType::EOF)? {
             let param = self.expect(TokenType::Identifier)?;
 
             parameters.push(Variable::new(param.source.to_string()));
@@ -196,8 +199,9 @@ impl<'a> GreenParser<'a> {
 
             ExprKind::IfElse(IfElseExpr::new(cond, then, else_clause))
         } else {
-            ExprKind::If(IfExpr::new(cond, Expr::sequence(
-                SequenceExpr::new(then.exprs)),
+            ExprKind::If(IfExpr::new(
+                cond,
+                Expr::sequence(SequenceExpr::new(then.exprs)),
             ))
         };
 
@@ -297,7 +301,8 @@ impl<'a> GreenParser<'a> {
     fn parse_return(&mut self) -> Result<Expr> {
         self.expect(TokenType::Keyword(Keyword::Return))?;
 
-        let return_expr = if self.match_(TokenType::Colon)? { // TODO
+        let return_expr = if self.match_(TokenType::Colon)? {
+            // TODO
             None
         } else {
             Some(self.parse_top_level_expression()?)
@@ -341,11 +346,14 @@ impl<'a> GreenParser<'a> {
         self.expect(TokenType::Keyword(Keyword::End))?;
         self.expect(TokenType::Line)?;
 
-        Ok(Expr::class(ClassExpr::new(Variable::new(class_name.to_string()))))
+        Ok(Expr::class(ClassExpr::new(Variable::new(
+            class_name.to_string(),
+        ))))
     }
 
     fn skip_lines(&mut self) {
-        while self.check(TokenType::Line).unwrap() { // TODO Unwrap
+        while self.check(TokenType::Line).unwrap() {
+            // TODO Unwrap
             self.consume();
         }
     }
@@ -398,24 +406,18 @@ impl<'a> GreenParser<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::syntax::expr::{GroupingExpr, ClassExpr};
+    use crate::syntax::expr::{ClassExpr, GroupingExpr};
 
     #[test]
     fn parse_block() {
-        let expected_exprs = Expr::block(BlockExpr::new(
-            vec![
-                Expr::print(PrintExpr::new(
-                    Expr::grouping(GroupingExpr::new(Expr::literal(
-                        LiteralExpr::Number(1.0)))
-                    ))
-                ),
-                Expr::print(PrintExpr::new(
-                    Expr::grouping(GroupingExpr::new(Expr::literal(
-                        LiteralExpr::Number(5.0)))
-                    ))
-                ),
-            ]
-        ));
+        let expected_exprs = Expr::block(BlockExpr::new(vec![
+            Expr::print(PrintExpr::new(Expr::grouping(GroupingExpr::new(
+                Expr::literal(LiteralExpr::Number(1.0)),
+            )))),
+            Expr::print(PrintExpr::new(Expr::grouping(GroupingExpr::new(
+                Expr::literal(LiteralExpr::Number(5.0)),
+            )))),
+        ]));
         let expect = ModuleAst::new(vec![expected_exprs]);
 
         let input = r#"
@@ -431,14 +433,10 @@ mod test {
 
     #[test]
     fn parse_declare_var() {
-        let expected_exprs = vec![
-            Expr::var_assign(VarAssignExpr::new(
-                Variable::new("x".to_string()),
-                Expr::literal(
-                    LiteralExpr::Number(5.0)
-                ))
-            ),
-        ];
+        let expected_exprs = vec![Expr::var_assign(VarAssignExpr::new(
+            Variable::new("x".to_string()),
+            Expr::literal(LiteralExpr::Number(5.0)),
+        ))];
         let expect = ModuleAst::new(expected_exprs);
 
         let input = r#"
@@ -451,14 +449,10 @@ mod test {
 
     #[test]
     fn parse_set_var() {
-        let expected_exprs = vec![
-            Expr::var_set(VarSetExpr::new(
-                Variable::new("x".to_string()),
-                Expr::literal(
-                    LiteralExpr::Number(5.0)
-                ))
-            ),
-        ];
+        let expected_exprs = vec![Expr::var_set(VarSetExpr::new(
+            Variable::new("x".to_string()),
+            Expr::literal(LiteralExpr::Number(5.0)),
+        ))];
         let expect = ModuleAst::new(expected_exprs);
 
         let input = r#"
@@ -474,15 +468,11 @@ mod test {
         let expected_exprs = vec![
             Expr::var_assign(VarAssignExpr::new(
                 Variable::new("x".to_string()),
-                Expr::literal(
-                    LiteralExpr::Number(5.0)
-                ))
-            ),
+                Expr::literal(LiteralExpr::Number(5.0)),
+            )),
             Expr::var_assign(VarAssignExpr::new(
                 Variable::new("y".to_string()),
-                Expr::var_get(VarGetExpr::new(
-                    Variable::new("x".to_string())
-                )),
+                Expr::var_get(VarGetExpr::new(Variable::new("x".to_string()))),
             )),
         ];
         let expect = ModuleAst::new(expected_exprs);
@@ -500,17 +490,15 @@ mod test {
     fn parse_if_else() {
         let empty_vec: Vec<Expr> = vec![]; // FIXME
         let empty_vec2: Vec<Expr> = vec![];
-        let expected_exprs = vec![
-            Expr::if_else(IfElseExpr::new(
-                Expr::binary(BinaryExpr::new(
-                    Expr::literal(LiteralExpr::Number(10.0)),
-                    Expr::literal(LiteralExpr::Number(5.0)),
-                    BinaryOperator::GreaterThan,
-                )),
-                BlockExpr::new(empty_vec),
-                BlockExpr::new(empty_vec2),
-            ))
-        ];
+        let expected_exprs = vec![Expr::if_else(IfElseExpr::new(
+            Expr::binary(BinaryExpr::new(
+                Expr::literal(LiteralExpr::Number(10.0)),
+                Expr::literal(LiteralExpr::Number(5.0)),
+                BinaryOperator::GreaterThan,
+            )),
+            BlockExpr::new(empty_vec),
+            BlockExpr::new(empty_vec2),
+        ))];
         let expect = ModuleAst::new(expected_exprs);
 
         let input = r#"
@@ -526,15 +514,9 @@ mod test {
     #[test]
     fn parse_import() {
         let expected_exprs = vec![
-            Expr::import(ImportExpr::new(
-                "foo.bar".to_string(),
-            )),
-            Expr::import(ImportExpr::new(
-                "util".to_string(),
-            )),
-            Expr::import(ImportExpr::new(
-                "..bar.foo".to_string(),
-            )),
+            Expr::import(ImportExpr::new("foo.bar".to_string())),
+            Expr::import(ImportExpr::new("util".to_string())),
+            Expr::import(ImportExpr::new("..bar.foo".to_string())),
         ];
         let expect = ModuleAst::new(expected_exprs);
 
@@ -550,27 +532,19 @@ mod test {
 
     #[test]
     fn parse_def() {
-        let expected_exprs = vec![
-            Expr::new(ExprKind::Function(FunctionExpr::new(
-                Variable::new("double".to_string()),
-                FunctionDeclaration::new(
-                    vec![
-                        Variable::new("x".to_string()),
-                    ],
-                    BlockExpr::new(vec![
-                        Expr::return_(ReturnExpr::new(
-                            Some(Expr::binary(BinaryExpr::new(
-                                Expr::var_get(VarGetExpr::new(
-                                    Variable::new("x".to_string())
-                                )),
-                                Expr::literal(LiteralExpr::Number(2.0)),
-                                BinaryOperator::Multiply,
-                            ))),
-                        ))
-                    ]),
-                ),
-            )))
-        ];
+        let expected_exprs = vec![Expr::new(ExprKind::Function(FunctionExpr::new(
+            Variable::new("double".to_string()),
+            FunctionDeclaration::new(
+                vec![Variable::new("x".to_string())],
+                BlockExpr::new(vec![Expr::return_(ReturnExpr::new(Some(Expr::binary(
+                    BinaryExpr::new(
+                        Expr::var_get(VarGetExpr::new(Variable::new("x".to_string()))),
+                        Expr::literal(LiteralExpr::Number(2.0)),
+                        BinaryOperator::Multiply,
+                    ),
+                ))))]),
+            ),
+        )))];
         let expect = ModuleAst::new(expected_exprs);
 
         let input = r#"
@@ -592,27 +566,19 @@ mod test {
             )),
             Expr::while_(WhileExpr::new(
                 Expr::binary(BinaryExpr::new(
-                    Expr::var_get(VarGetExpr::new(
-                        Variable::new("x".to_string()),
-                    )),
+                    Expr::var_get(VarGetExpr::new(Variable::new("x".to_string()))),
                     Expr::literal(LiteralExpr::Number(10.0)),
                     BinaryOperator::LessThan,
                 )),
-                Expr::block(BlockExpr::new(
-                    vec![
-                        Expr::var_set(VarSetExpr::new(
-                            Variable::new("x".to_string()),
-                            Expr::binary(BinaryExpr::new(
-                                Expr::var_get(VarGetExpr::new(
-                                    Variable::new("x".to_string()),
-                                )),
-                                Expr::literal(LiteralExpr::Number(1.0)),
-                                BinaryOperator::Add,
-                            ))
-                        ))
-                    ]
-                ))
-            ))
+                Expr::block(BlockExpr::new(vec![Expr::var_set(VarSetExpr::new(
+                    Variable::new("x".to_string()),
+                    Expr::binary(BinaryExpr::new(
+                        Expr::var_get(VarGetExpr::new(Variable::new("x".to_string()))),
+                        Expr::literal(LiteralExpr::Number(1.0)),
+                        BinaryOperator::Add,
+                    )),
+                ))])),
+            )),
         ];
         let expect = ModuleAst::new(expected_exprs);
 
@@ -629,11 +595,9 @@ mod test {
 
     #[test]
     fn parse_class() {
-        let expected_exprs = vec![
-            Expr::class(ClassExpr::new(
-                Variable::new("Point".to_string()),
-            ))
-        ];
+        let expected_exprs = vec![Expr::class(ClassExpr::new(Variable::new(
+            "Point".to_string(),
+        )))];
         let expect = ModuleAst::new(expected_exprs);
 
         let input = r#"

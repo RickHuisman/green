@@ -2,5 +2,5 @@ class Point
 end
 
 var point = Point()
-point.x = 5
-print(point.x)
+point.x = 10
+print(point.x * 2)

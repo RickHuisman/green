@@ -1,6 +1,6 @@
+use crate::vm::VM;
 use std::io;
-use std::io::{BufRead, Error};
-use crate::vm::vm::VM;
+use std::io::BufRead;
 
 pub struct Repl {
     vm: VM,
@@ -8,9 +8,7 @@ pub struct Repl {
 
 impl Repl {
     fn new() -> Self {
-        Repl {
-            vm: VM::new(),
-        }
+        Repl { vm: VM::new() }
     }
 
     pub fn run() {

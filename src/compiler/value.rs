@@ -1,79 +1,64 @@
-use crate::compiler::object::{GreenClosure, GreenFunction, Object, Instance};
+use crate::compiler::object::{GreenClosure, GreenFunction, Instance, Class};
 use std::cmp::Ordering;
 use std::fmt;
-use std::fmt::{Display, Formatter};
 use std::ops::{Add, Div, Mul, Neg, Sub};
+use crate::vm::obj::Gc;
+use crate::vm::vm::RunResult;
+use crate::vm::errors::RuntimeError;
 
-#[derive(Debug, Clone)] // TODO Implement Copy
+#[derive(Clone)] // TODO Implement Copy
 pub enum Value {
     Number(f64),
     True,
     False,
     Nil, // TODO Does Green lang use nils???
-    Obj(Object),
+    String(String),
+    Array(Vec<Value>), // TODO u32? Vec?
+    Closure(Gc<GreenClosure>),
+    Function(Gc<GreenFunction>),
+    Class(Gc<Class>),
+    Instance(Gc<Instance>),
 }
 
 impl Value {
     pub fn string(s: String) -> Value {
-        Value::Obj(Object::String(s))
-    }
-
-    pub fn closure(e: GreenClosure) -> Value {
-        Value::Obj(Object::Closure(e))
-    }
-
-    pub fn function(f: GreenFunction) -> Value {
-        Value::Obj(Object::Function(f))
+        Value::String(s)
     }
 
     // TODO Find a better way to convert Value::Obj(Obj::String()) to String
     // TODO Use Result<T>
-    pub fn as_string(self) -> String {
+    pub fn as_string(&self) -> &String {
         match self {
-            Value::Obj(s) => match s {
-                Object::String(s) => s,
-                _ => panic!("TODO"),
-            },
+            Value::String(s) => s,
             _ => panic!("TODO"),
         }
     }
 
-    pub fn as_function(self) -> GreenFunction {
-        // FIXME
+    // pub fn as_function(self) -> GreenFunction {
+    //     // FIXME
+    //     match self {
+    //         Value::Function(fun) => fun,
+    //         _ => panic!("TODO"), // TODO
+    //     }
+    // }
+    //
+    pub fn as_instance(self) -> RunResult<Gc<Instance>> {
         match self {
-            Value::Obj(obj) => match obj {
-                Object::Function(fun) => fun,
-                _ => panic!("TODO"), // TODO
-            },
-            _ => panic!("TODO"), // TODO
+            Value::Instance(i) => Ok(i),
+            _ => Err(RuntimeError::ArgumentTypes),
         }
     }
-
-    pub fn as_object(self) -> Object {
-        // FIXME
-        match self {
-            Value::Obj(obj) => obj,
-            _ => todo!(), // TODO
-        }
-    }
-
-    pub fn as_instance(self) -> Instance {
-        match self.as_object() {
-            Object::Instance(i) => i,
-            _ => todo!(),
-        }
-    }
-
-    pub fn as_closure(self) -> GreenClosure {
-        // FIXME
-        match self {
-            Value::Obj(obj) => match obj {
-                Object::Closure(c) => c,
-                _ => panic!("Can only call functions"), // TODO
-            },
-            _ => panic!("Can only call functions"), // TODO
-        }
-    }
+    //
+    // pub fn as_closure(self) -> GreenClosure {
+    //     // FIXME
+    //     match self {
+    //         Value::Obj(obj) => match obj {
+    //             Object::Closure(c) => c,
+    //             _ => panic!("Can only call functions"), // TODO
+    //         },
+    //         _ => panic!("Can only call functions"), // TODO
+    //     }
+    // }
 
     pub fn as_number(self) -> f64 {
         match self {
@@ -85,32 +70,38 @@ impl Value {
     pub fn as_array(self) -> Vec<Value> {
         // FIXME
         match self {
-            Value::Obj(object) => {
-                match object {
-                    Object::Array(a) => a,
-                    _ => panic!("TODO"), // TODO
-                }
-            },
+            Value::Array(a) => a,
             _ => panic!("TODO"), // TODO
         }
     }
 
     pub fn is_instance(&self) -> bool {
-        // TODO
         match self {
-            Value::Obj(o) => {
-                match o {
-                    Object::Instance(i) => true,
-                    _ => false
-                }
-            }
-            _ => false
+            Value::Instance(_) => true,
+            _ => false,
         }
     }
 }
 
-impl From<Value> for bool {
-    fn from(value: Value) -> Self {
+impl fmt::Debug for Value {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Value::Number(n) => write!(f, "Number({})", n),
+            Value::True => write!(f, "True"),
+            Value::False => write!(f, "False"),
+            Value::Nil => write!(f, "Nil"),
+            Value::String(s) => write!(f, "String({})", s),
+            Value::Array(_) => todo!(),
+            Value::Closure(clos) => write!(f, "Closure({:?})", clos),
+            Value::Function(fun) => write!(f, "Function({})", **fun),
+            Value::Class(c) => write!(f, "Class({})", **c),
+            Value::Instance(i) => write!(f, "Instance({:?})", i),
+        }
+    }
+}
+
+impl From<&Value> for bool {
+    fn from(value: &Value) -> Self {
         match value {
             Value::False | Value::Nil => false,
             _ => true,
@@ -227,18 +218,6 @@ impl PartialOrd for Value {
             }
         } else {
             panic!("Operand must be a number.");
-        }
-    }
-}
-
-impl Display for Value {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Value::Number(n) => write!(f, "{}", n),
-            Value::True => write!(f, "true"),
-            Value::False => write!(f, "false"),
-            Value::Nil => write!(f, "nil"),
-            Value::Obj(obj) => write!(f, "{}", obj),
         }
     }
 }

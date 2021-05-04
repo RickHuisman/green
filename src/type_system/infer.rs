@@ -31,19 +31,39 @@ impl fmt::Display for Syntax {
         use Syntax::*;
         match self {
             &Lambda { ref v, ref body } => {
-                write!(f, "(fn {v} => {body})", v=v, body=body)
+                write!(f, "(fn {v} => {body})", v = v, body = body)
             }
             &Identifier { ref name } => {
                 write!(f, "{}", name)
             }
             &Apply { ref func, ref arg } => {
-                write!(f, "({func} {arg})", func=func, arg=arg)
+                write!(f, "({func} {arg})", func = func, arg = arg)
             }
-            &Let { ref v, ref defn, ref body } => {
-                write!(f, "(let {v} = {defn} in {body})", v=v, defn=defn, body=body)
+            &Let {
+                ref v,
+                ref defn,
+                ref body,
+            } => {
+                write!(
+                    f,
+                    "(let {v} = {defn} in {body})",
+                    v = v,
+                    defn = defn,
+                    body = body
+                )
             }
-            &Letrec { ref v, ref defn, ref body } => {
-                write!(f, "(letrec {v} = {defn} in {body})", v=v, defn=defn, body=body)
+            &Letrec {
+                ref v,
+                ref defn,
+                ref body,
+            } => {
+                write!(
+                    f,
+                    "(letrec {v} = {defn} in {body})",
+                    v = v,
+                    defn = defn,
+                    body = body
+                )
             }
         }
     }
@@ -68,7 +88,7 @@ pub enum Type {
         id: ArenaType,
         name: String,
         types: Vec<ArenaType>,
-    }
+    },
 }
 
 struct Namer {
@@ -84,9 +104,7 @@ impl Namer {
     }
 
     fn name(&mut self, t: ArenaType) -> String {
-        let k = {
-            self.set.get(&t).map(|x| x.clone())
-        };
+        let k = { self.set.get(&t).map(|x| x.clone()) };
         if let Some(val) = k {
             val.clone()
         } else {
@@ -120,18 +138,17 @@ impl Type {
 
     fn id(&self) -> usize {
         match self {
-            &Type::Variable { id, .. } => {
-                id
-            }
-            &Type::Operator { id, .. } => {
-                id
-            }
+            &Type::Variable { id, .. } => id,
+            &Type::Operator { id, .. } => id,
         }
     }
 
     fn set_instance(&mut self, instance: ArenaType) {
         match self {
-            &mut Type::Variable { instance: ref mut inst, .. } => {
+            &mut Type::Variable {
+                instance: ref mut inst,
+                ..
+            } => {
                 *inst = Some(instance);
             }
             _ => {
@@ -142,29 +159,30 @@ impl Type {
 
     fn as_string(&self, a: &Vec<Type>, namer: &mut Namer) -> String {
         match self {
-            &Type::Variable { instance: Some(inst), .. } => {
-                a[inst].as_string(a, namer)
-            },
-            &Type::Variable { .. } => {
-                namer.name(self.id())
-            },
-            &Type::Operator { ref types, ref name, .. } => {
-                match types.len() {
-                    0 => name.clone(),
-                    2 => {
-                        let l = a[types[0]].as_string(a, namer);
-                        let r = a[types[1]].as_string(a, namer);
-                        format!("({} {} {})", l, name, r)
-                    },
-                    _ => {
-                        let mut coll = vec![];
-                        for v in types {
-                            coll.push(a[*v].as_string(a, namer));
-                        }
-                        format!("{} {}", name, coll.join(" "))
-                    },
+            &Type::Variable {
+                instance: Some(inst),
+                ..
+            } => a[inst].as_string(a, namer),
+            &Type::Variable { .. } => namer.name(self.id()),
+            &Type::Operator {
+                ref types,
+                ref name,
+                ..
+            } => match types.len() {
+                0 => name.clone(),
+                2 => {
+                    let l = a[types[0]].as_string(a, namer);
+                    let r = a[types[1]].as_string(a, namer);
+                    format!("({} {} {})", l, name, r)
                 }
-            }
+                _ => {
+                    let mut coll = vec![];
+                    for v in types {
+                        coll.push(a[*v].as_string(a, namer));
+                    }
+                    format!("{} {}", name, coll.join(" "))
+                }
+            },
         }
     }
 }
@@ -231,12 +249,15 @@ pub struct Env(HashMap<String, ArenaType>);
 ///     InferenceError: The type of the expression could not be inferred, for example
 ///         if it is not possible to unify two types such as Integer and Bool
 ///     ParseError: The abstract syntax tree rooted at node could not be parsed
-pub fn analyse(a: &mut Vec<Type>, node: &Syntax, env: &Env, non_generic: &HashSet<ArenaType>) -> ArenaType {
+pub fn analyse(
+    a: &mut Vec<Type>,
+    node: &Syntax,
+    env: &Env,
+    non_generic: &HashSet<ArenaType>,
+) -> ArenaType {
     use Syntax::*;
     match node {
-        &Identifier { ref name } => {
-            get_type(a, name, env, non_generic)
-        }
+        &Identifier { ref name } => get_type(a, name, env, non_generic),
         &Apply { ref func, ref arg } => {
             let fun_type = analyse(a, func, env, non_generic);
             let arg_type = analyse(a, arg, env, non_generic);
@@ -254,13 +275,21 @@ pub fn analyse(a: &mut Vec<Type>, node: &Syntax, env: &Env, non_generic: &HashSe
             let result_type = analyse(a, body, &new_env, &new_non_generic);
             new_function(a, arg_type, result_type)
         }
-        &Let { ref defn, ref v, ref body } => {
+        &Let {
+            ref defn,
+            ref v,
+            ref body,
+        } => {
             let defn_type = analyse(a, defn, env, non_generic);
             let mut new_env = env.clone();
             new_env.0.insert(v.clone(), defn_type);
             analyse(a, body, &new_env, non_generic)
         }
-        &Letrec { ref defn, ref v, ref body } => {
+        &Letrec {
+            ref defn,
+            ref v,
+            ref body,
+        } => {
             let new_type = new_variable(a);
             let mut new_env = env.clone();
             new_env.0.insert(v.clone(), new_type.clone());
@@ -273,7 +302,6 @@ pub fn analyse(a: &mut Vec<Type>, node: &Syntax, env: &Env, non_generic: &HashSe
     }
 }
 
-
 /// Get the type of identifier name from the type environment env.
 ///
 ///     Args:
@@ -284,7 +312,12 @@ pub fn analyse(a: &mut Vec<Type>, node: &Syntax, env: &Env, non_generic: &HashSe
 ///     Raises:
 ///         ParseError: Raised if name is an undefined symbol in the type
 ///             environment.
-fn get_type(a: &mut Vec<Type>, name: &str, env: &Env, non_generic: &HashSet<ArenaType>) -> ArenaType {
+fn get_type(
+    a: &mut Vec<Type>,
+    name: &str,
+    env: &Env,
+    non_generic: &HashSet<ArenaType>,
+) -> ArenaType {
     if let Some(value) = env.0.get(name) {
         let mat = non_generic.iter().cloned().collect::<Vec<_>>();
         fresh(a, *value, &mat)
@@ -308,20 +341,30 @@ fn fresh(a: &mut Vec<Type>, t: ArenaType, non_generic: &[ArenaType]) -> ArenaTyp
     // A mapping of TypeVariables to TypeVariables
     let mut mappings = HashMap::new();
 
-    fn freshrec(a: &mut Vec<Type>, tp: ArenaType, mappings: &mut HashMap<ArenaType, ArenaType>, non_generic: &[ArenaType]) -> ArenaType {
+    fn freshrec(
+        a: &mut Vec<Type>,
+        tp: ArenaType,
+        mappings: &mut HashMap<ArenaType, ArenaType>,
+        non_generic: &[ArenaType],
+    ) -> ArenaType {
         let p = prune(a, tp);
         match a.get(p).unwrap().clone() {
             Type::Variable { .. } => {
                 if is_generic(a, p, non_generic) {
-                    mappings.entry(p)
-                        .or_insert(new_variable(a))
-                        .clone()
+                    mappings.entry(p).or_insert(new_variable(a)).clone()
                 } else {
                     p
                 }
             }
-            Type::Operator { ref name, ref types, .. } => {
-                let b = types.iter().map(|x| freshrec(a, *x, mappings, non_generic)).collect::<Vec<_>>();
+            Type::Operator {
+                ref name,
+                ref types,
+                ..
+            } => {
+                let b = types
+                    .iter()
+                    .map(|x| freshrec(a, *x, mappings, non_generic))
+                    .collect::<Vec<_>>();
                 new_operator(a, name, &b)
             }
         }
@@ -329,7 +372,6 @@ fn fresh(a: &mut Vec<Type>, t: ArenaType, non_generic: &[ArenaType]) -> ArenaTyp
 
     freshrec(a, t, &mut mappings, non_generic)
 }
-
 
 /// Unify the two types t1 and t2.
 ///
@@ -357,11 +399,19 @@ fn unify(alloc: &mut Vec<Type>, t1: ArenaType, t2: ArenaType) {
                 alloc.get_mut(a).unwrap().set_instance(b);
             }
         }
-        (Type::Operator { .. }, Type::Variable { .. }) => {
-            unify(alloc, b, a)
-        }
-        (Type::Operator { name: ref a_name, types: ref a_types, .. },
-            Type::Operator { name: ref b_name, types: ref b_types, .. }) => {
+        (Type::Operator { .. }, Type::Variable { .. }) => unify(alloc, b, a),
+        (
+            Type::Operator {
+                name: ref a_name,
+                types: ref a_types,
+                ..
+            },
+            Type::Operator {
+                name: ref b_name,
+                types: ref b_types,
+                ..
+            },
+        ) => {
             if a_name != b_name || a_types.len() != b_types.len() {
                 //raise InferenceError("Type mismatch: {0} != {1}".format(str(a), str(b)))
                 panic!("type mismatch");
@@ -372,7 +422,6 @@ fn unify(alloc: &mut Vec<Type>, t1: ArenaType, t2: ArenaType) {
         }
     }
 }
-
 
 /// Returns the currently defining instance of t.
 ///
@@ -406,7 +455,9 @@ fn prune(a: &mut Vec<Type>, t: ArenaType) -> ArenaType {
     let value = prune(a, v2);
     match a.get_mut(t).unwrap() {
         //TODO screwed up
-        &mut Type::Variable { ref mut instance, .. } => {
+        &mut Type::Variable {
+            ref mut instance, ..
+        } => {
             *instance = Some(value);
         }
         _ => {
@@ -415,7 +466,6 @@ fn prune(a: &mut Vec<Type>, t: ArenaType) -> ArenaType {
     }
     value
 }
-
 
 /// Checks whether a given variable occurs in a list of non-generic variables
 ///
@@ -435,7 +485,6 @@ fn is_generic(a: &mut Vec<Type>, v: ArenaType, non_generic: &[ArenaType]) -> boo
     !occurs_in(a, v, non_generic)
 }
 
-
 /// Checks whether a type variable occurs in a type expression.
 ///
 ///     Note: Must be called with v pre-pruned
@@ -452,13 +501,10 @@ fn occurs_in_type(a: &mut Vec<Type>, v: ArenaType, type2: ArenaType) -> bool {
         return true;
     }
     match a.get(pruned_type2).unwrap().clone() {
-        Type::Operator { ref types, .. } => {
-            occurs_in(a, v, types)
-        }
-        _ => false
+        Type::Operator { ref types, .. } => occurs_in(a, v, types),
+        _ => false,
     }
 }
-
 
 /// Checks whether a types variable occurs in any other types.
 ///
@@ -489,9 +535,7 @@ fn is_integer_literal(name: &str) -> bool {
     name.parse::<isize>().is_ok()
 }
 
-
 //=====================================================
-
 
 pub fn new_lambda(v: &str, body: Syntax) -> Syntax {
     Syntax::Lambda {
@@ -545,20 +589,14 @@ fn test_env() -> (Vec<Type>, Env) {
         let right = new_function(&mut a, var2, pair_type);
         new_function(&mut a, var1, right)
     });
-    my_env.insert("true".to_string(), {
-        1
-    });
+    my_env.insert("true".to_string(), { 1 });
     my_env.insert("cond".to_string(), {
         let right = new_function(&mut a, var3, var3);
         let right = new_function(&mut a, var3, right);
         new_function(&mut a, 1, right)
     });
-    my_env.insert("zero".to_string(), {
-        new_function(&mut a, 0, 1)
-    });
-    my_env.insert("pred".to_string(), {
-        new_function(&mut a, 0, 0)
-    });
+    my_env.insert("zero".to_string(), { new_function(&mut a, 0, 1) });
+    my_env.insert("pred".to_string(), { new_function(&mut a, 0, 0) });
     my_env.insert("times".to_string(), {
         let right = new_function(&mut a, 0, 0);
         new_function(&mut a, 0, right)
@@ -581,28 +619,43 @@ mod tests {
         let (mut a, my_env) = test_env();
 
         // factorial
-        let syntax = new_letrec("factorial",  // letrec factorial =
-                                new_lambda("n",  // fn n =>
-                                           new_apply(
-                                               new_apply(  // cond (zero n) 1
-                                                           new_apply(new_identifier("cond"),  // cond (zero n)
-                                                                     new_apply(new_identifier("zero"), new_identifier("n"))),
-                                                           new_identifier("1")),
-                                               new_apply(  // times n
-                                                           new_apply(new_identifier("times"), new_identifier("n")),
-                                                           new_apply(new_identifier("factorial"),
-                                                                     new_apply(new_identifier("pred"), new_identifier("n")))
-                                               )
-                                           )
-                                ),  // in
-                                new_apply(new_identifier("factorial"), new_identifier("5"))
+        let syntax = new_letrec(
+            "factorial", // letrec factorial =
+            new_lambda(
+                "n", // fn n =>
+                new_apply(
+                    new_apply(
+                        // cond (zero n) 1
+                        new_apply(
+                            new_identifier("cond"), // cond (zero n)
+                            new_apply(new_identifier("zero"), new_identifier("n")),
+                        ),
+                        new_identifier("1"),
+                    ),
+                    new_apply(
+                        // times n
+                        new_apply(new_identifier("times"), new_identifier("n")),
+                        new_apply(
+                            new_identifier("factorial"),
+                            new_apply(new_identifier("pred"), new_identifier("n")),
+                        ),
+                    ),
+                ),
+            ), // in
+            new_apply(new_identifier("factorial"), new_identifier("5")),
         );
 
         let t = analyse(&mut a, &syntax, &my_env, &HashSet::new());
-        assert_eq!(a[t].as_string(&a, &mut Namer {
-            value: 'a',
-            set: HashMap::new(),
-        }), r#"int"#);
+        assert_eq!(
+            a[t].as_string(
+                &a,
+                &mut Namer {
+                    value: 'a',
+                    set: HashMap::new(),
+                }
+            ),
+            r#"int"#
+        );
     }
 
     #[should_panic]
@@ -611,11 +664,16 @@ mod tests {
         let (mut a, my_env) = test_env();
 
         // fn x => (pair(x(3) (x(true)))
-        let syntax = new_lambda("x",
-                                new_apply(
-                                    new_apply(new_identifier("pair"),
-                                              new_apply(new_identifier("x"), new_identifier("3"))),
-                                    new_apply(new_identifier("x"), new_identifier("true"))));
+        let syntax = new_lambda(
+            "x",
+            new_apply(
+                new_apply(
+                    new_identifier("pair"),
+                    new_apply(new_identifier("x"), new_identifier("3")),
+                ),
+                new_apply(new_identifier("x"), new_identifier("true")),
+            ),
+        );
 
         let _ = analyse(&mut a, &syntax, &my_env, &HashSet::new());
     }
@@ -627,8 +685,12 @@ mod tests {
 
         // pair(f(3), f(true))
         let syntax = new_apply(
-            new_apply(new_identifier("pair"), new_apply(new_identifier("f"), new_identifier("4"))),
-            new_apply(new_identifier("f"), new_identifier("true")));
+            new_apply(
+                new_identifier("pair"),
+                new_apply(new_identifier("f"), new_identifier("4")),
+            ),
+            new_apply(new_identifier("f"), new_identifier("true")),
+        );
 
         let _ = analyse(&mut a, &syntax, &my_env, &HashSet::new());
     }
@@ -637,20 +699,28 @@ mod tests {
     fn test_mul() {
         let (mut a, my_env) = test_env();
 
-        let pair = new_apply(new_apply(new_identifier("pair"),
-                                       new_apply(new_identifier("f"),
-                                                 new_identifier("4"))),
-                             new_apply(new_identifier("f"),
-                                       new_identifier("true")));
+        let pair = new_apply(
+            new_apply(
+                new_identifier("pair"),
+                new_apply(new_identifier("f"), new_identifier("4")),
+            ),
+            new_apply(new_identifier("f"), new_identifier("true")),
+        );
 
         // let f = (fn x => x) in ((pair (f 4)) (f true))
         let syntax = new_let("f", new_lambda("x", new_identifier("x")), pair);
 
         let t = analyse(&mut a, &syntax, &my_env, &HashSet::new());
-        assert_eq!(a[t].as_string(&a, &mut Namer {
-            value: 'a',
-            set: HashMap::new(),
-        }), r#"(int * bool)"#);
+        assert_eq!(
+            a[t].as_string(
+                &a,
+                &mut Namer {
+                    value: 'a',
+                    set: HashMap::new(),
+                }
+            ),
+            r#"(int * bool)"#
+        );
     }
 
     #[should_panic]
@@ -662,10 +732,16 @@ mod tests {
         let syntax = new_lambda("f", new_apply(new_identifier("f"), new_identifier("f")));
 
         let t = analyse(&mut a, &syntax, &my_env, &HashSet::new());
-        assert_eq!(a[t].as_string(&a, &mut Namer {
-            value: 'a',
-            set: HashMap::new(),
-        }), r#"int"#);
+        assert_eq!(
+            a[t].as_string(
+                &a,
+                &mut Namer {
+                    value: 'a',
+                    set: HashMap::new(),
+                }
+            ),
+            r#"int"#
+        );
     }
 
     #[test]
@@ -673,17 +749,24 @@ mod tests {
         let (mut a, my_env) = test_env();
 
         // let g = fn f => 5 in g g
-        let syntax = new_let("g",
-                             new_lambda("f", new_identifier("5")),
-                             new_apply(new_identifier("g"), new_identifier("g")));
+        let syntax = new_let(
+            "g",
+            new_lambda("f", new_identifier("5")),
+            new_apply(new_identifier("g"), new_identifier("g")),
+        );
 
         let t = analyse(&mut a, &syntax, &my_env, &HashSet::new());
-        assert_eq!(a[t].as_string(&a, &mut Namer {
-            value: 'a',
-            set: HashMap::new(),
-        }), r#"int"#);
+        assert_eq!(
+            a[t].as_string(
+                &a,
+                &mut Namer {
+                    value: 'a',
+                    set: HashMap::new(),
+                }
+            ),
+            r#"int"#
+        );
     }
-
 
     #[test]
     fn test_generic_nongeneric() {
@@ -691,22 +774,33 @@ mod tests {
 
         // example that demonstrates generic and non-generic variables:
         // fn g => let f = fn x => g in pair (f 3, f true)
-        let syntax = new_lambda("g",
-                                new_let("f",
-                                        new_lambda("x", new_identifier("g")),
-                                        new_apply(
-                                            new_apply(new_identifier("pair"),
-                                                      new_apply(new_identifier("f"), new_identifier("3"))
-                                            ),
-                                            new_apply(new_identifier("f"), new_identifier("true")))));
+        let syntax = new_lambda(
+            "g",
+            new_let(
+                "f",
+                new_lambda("x", new_identifier("g")),
+                new_apply(
+                    new_apply(
+                        new_identifier("pair"),
+                        new_apply(new_identifier("f"), new_identifier("3")),
+                    ),
+                    new_apply(new_identifier("f"), new_identifier("true")),
+                ),
+            ),
+        );
 
         let t = analyse(&mut a, &syntax, &my_env, &HashSet::new());
-        assert_eq!(a[t].as_string(&a, &mut Namer {
-            value: 'a',
-            set: HashMap::new(),
-        }), r#"(a -> (a * a))"#);
+        assert_eq!(
+            a[t].as_string(
+                &a,
+                &mut Namer {
+                    value: 'a',
+                    set: HashMap::new(),
+                }
+            ),
+            r#"(a -> (a * a))"#
+        );
     }
-
 
     #[test]
     fn test_composition() {
@@ -714,15 +808,32 @@ mod tests {
 
         // Function composition
         // fn f (fn g (fn arg (f g arg)))
-        let syntax = new_lambda("f", new_lambda("g", new_lambda("arg", new_apply(new_identifier("g"), new_apply(new_identifier("f"), new_identifier("arg"))))));
+        let syntax = new_lambda(
+            "f",
+            new_lambda(
+                "g",
+                new_lambda(
+                    "arg",
+                    new_apply(
+                        new_identifier("g"),
+                        new_apply(new_identifier("f"), new_identifier("arg")),
+                    ),
+                ),
+            ),
+        );
 
         let t = analyse(&mut a, &syntax, &my_env, &HashSet::new());
-        assert_eq!(a[t].as_string(&a, &mut Namer {
-            value: 'a',
-            set: HashMap::new(),
-        }), r#"((a -> b) -> ((b -> c) -> (a -> c)))"#);
+        assert_eq!(
+            a[t].as_string(
+                &a,
+                &mut Namer {
+                    value: 'a',
+                    set: HashMap::new(),
+                }
+            ),
+            r#"((a -> b) -> ((b -> c) -> (a -> c)))"#
+        );
     }
-
 
     #[test]
     fn test_fun() {
@@ -730,13 +841,30 @@ mod tests {
 
         // Function composition
         // fn f (fn g (fn arg (f g arg)))
-        let syntax = new_lambda("f", new_lambda("g", new_lambda("arg", new_apply(new_identifier("g"), new_apply(new_identifier("f"), new_identifier("arg"))))));
+        let syntax = new_lambda(
+            "f",
+            new_lambda(
+                "g",
+                new_lambda(
+                    "arg",
+                    new_apply(
+                        new_identifier("g"),
+                        new_apply(new_identifier("f"), new_identifier("arg")),
+                    ),
+                ),
+            ),
+        );
 
         let t = analyse(&mut a, &syntax, &my_env, &HashSet::new());
-        assert_eq!(a[t].as_string(&a, &mut Namer {
-            value: 'a',
-            set: HashMap::new(),
-        }), r#"((a -> b) -> ((b -> c) -> (a -> c)))"#);
+        assert_eq!(
+            a[t].as_string(
+                &a,
+                &mut Namer {
+                    value: 'a',
+                    set: HashMap::new(),
+                }
+            ),
+            r#"((a -> b) -> ((b -> c) -> (a -> c)))"#
+        );
     }
-
 }

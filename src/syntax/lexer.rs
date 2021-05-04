@@ -200,8 +200,8 @@ impl<'a> Lexer<'a> {
     }
 
     fn advance_while<F>(&mut self, f: F) -> usize
-        where
-                for<'r> F: Fn(&'r char) -> bool,
+    where
+        for<'r> F: Fn(&'r char) -> bool,
     {
         let mut count = 0;
         while let Some(char) = self.peek() {

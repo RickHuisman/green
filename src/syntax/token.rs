@@ -1,7 +1,8 @@
 use std::str::FromStr;
 
 #[derive(Debug, Copy, Clone)]
-pub struct Token<'a> { // TODO Use getters
+pub struct Token<'a> {
+    // TODO Use getters
     pub token_type: TokenType,
     pub source: &'a str,
     pub position: Position,

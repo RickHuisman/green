@@ -1,16 +1,11 @@
-use crate::compiler::compiler::Compiler;
-use crate::syntax::expr::{Compile, Expr, ExprKind, LiteralExpr};
-use crate::vm::vm::VM;
-use std::env;
-use std::process::exit;
-use crate::repl::Repl;
+use crate::vm::VM;
 
 mod compiler;
 mod error;
-mod syntax;
-mod vm;
-mod type_system;
 mod repl;
+mod syntax;
+mod type_system;
+mod vm;
 
 fn main() {
     // Repl::run();

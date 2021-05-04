@@ -1,5 +1,5 @@
-use std::io;
 use std::borrow::BorrowMut;
+use std::io;
 
 pub fn repl() {
     loop {
@@ -14,10 +14,10 @@ fn read_line() -> String {
         Ok(n) => {
             trim_newline(input.borrow_mut());
             input
-        },
+        }
         Err(error) => {
             panic!("error: {}", error);
-        },
+        }
     }
 }
 

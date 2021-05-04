@@ -45,7 +45,11 @@ impl Display for ParserError {
                 write!(f, "Unexpected token {:?}", unexpected)
             }
             ParserError::Expect(expected, actual, line) => {
-                write!(f, "Expected {:?}, got {:?}, on line: {}", expected, actual, line)
+                write!(
+                    f,
+                    "Expected {:?}, got {:?}, on line: {}",
+                    expected, actual, line
+                )
             }
             ParserError::UnexpectedEOF => write!(f, "Unexpected EOF"),
         }

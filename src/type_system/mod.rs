@@ -1,3 +1,3 @@
-pub mod repl;
-mod infer;
 mod ast;
+mod infer;
+pub mod repl;

@@ -1,233 +1,236 @@
 use crate::compiler::chunk::Chunk;
-use crate::compiler::compiler::Compiler;
-use crate::compiler::object::{GreenClosure, Object, Class, Instance};
+use crate::compiler::object::{Class, GreenClosure, Instance, Object};
 use crate::compiler::opcode::Opcode;
 use crate::compiler::value::Value;
-use crate::syntax::parser::{GreenParser, ModuleAst};
-use crate::vm::callframe::CallFrame;
+use crate::vm::errors::RuntimeError;
+use crate::vm::frame::CallFrame;
+use crate::vm::VM;
 use std::collections::HashMap;
-use std::process::exit;
-use crate::compiler::value::Value::Obj;
+use crate::vm::obj::Gc;
 
-pub struct VM {
-    stack: Vec<Value>,
-    frames: Vec<CallFrame>,
-    globals: HashMap<String, Value>,
-}
+pub type RunResult<T> = Result<T, RuntimeError>;
 
 impl VM {
-    pub fn new() -> Self {
-        VM {
-            stack: vec![],
-            frames: Vec::with_capacity(64),
-            globals: HashMap::new(),
-        }
-    }
-
-    pub fn interpret(&mut self, source: &str) { // TODO Result
-        let module = match GreenParser::parse(source) {
-            Ok(m) => m,
-            Err(err) => {
-                println!("{}", err);
-                exit(1);
-            }
-        };
-        let function = Compiler::compile_module(module);
-
-        let closure = GreenClosure::new(function);
-        self.push(Value::closure(closure.clone()));
-        self.call_value(Value::closure(closure.clone()), 0);
-
-        self.run()
-    }
-
-    fn run(&mut self) {
+    pub(crate) fn run(&mut self) -> RunResult<()> {
         while !self.is_at_end() {
             let instruction = Opcode::from(self.read_byte());
             match instruction {
-                Opcode::Return => self.ret(),
                 Opcode::Constant => self.constant(),
-                Opcode::Add => self.add(),
-                Opcode::Subtract => self.subtract(),
-                Opcode::Multiply => self.multiply(),
-                Opcode::Divide => self.divide(),
-                Opcode::Print => self.print(),
-                Opcode::Equal => self.equal(),
-                Opcode::Greater => self.greater(),
-                Opcode::Less => self.less(),
-                Opcode::Not => self.not(),
-                Opcode::Negate => self.negate(),
-                Opcode::DefineGlobal => self.define_global(),
-                Opcode::GetGlobal => self.get_global(),
-                Opcode::SetGlobal => self.set_global(),
-                Opcode::JumpIfFalse => self.jump_if_false(),
-                Opcode::Jump => self.jump(),
-                Opcode::Pop => { self.pop(); }
-                Opcode::GetLocal => self.get_local(),
-                Opcode::SetLocal => self.set_local(),
-                Opcode::Nil => self.nil(),
-                Opcode::Call => self.call_instruction(),
-                Opcode::Closure => self.closure(),
-                Opcode::Loop => self.loop_(),
-                Opcode::NewArray => self.new_array(),
-                Opcode::IndexSubscript => self.index_subscript(),
-                Opcode::StoreSubscript => self.store_subscript(),
+                Opcode::Add => self.add()?,
+                Opcode::Subtract => self.subtract()?,
+                Opcode::Multiply => self.multiply()?,
+                Opcode::Divide => self.divide()?,
+                Opcode::Greater => self.greater()?,
+                Opcode::Less => self.less()?,
+                Opcode::Equal => self.equal()?,
+                Opcode::Not => self.not()?,
+                Opcode::Negate => self.negate()?,
+                Opcode::DefineGlobal => self.define_global()?,
+                Opcode::GetGlobal => self.get_global()?,
+                Opcode::SetGlobal => self.set_global()?,
+                Opcode::GetLocal => self.get_local()?,
+                Opcode::SetLocal => self.set_local()?,
+                Opcode::GetProperty => self.get_property()?,
+                Opcode::SetProperty => self.set_property()?,
                 Opcode::Class => self.class(),
-                Opcode::GetProperty => self.get_property(),
-                Opcode::SetProperty => self.set_property(),
-            }
+                Opcode::Closure => self.closure(),
+                Opcode::JumpIfFalse => self.jump_if_false()?,
+                Opcode::Jump => self.jump()?,
+                Opcode::Loop => self.loop_(),
+                Opcode::Call => self.call_instruction(),
+                Opcode::NewArray => self.new_array()?,
+                Opcode::IndexSubscript => self.index_subscript()?,
+                Opcode::StoreSubscript => self.store_subscript()?,
+                Opcode::Return => self.ret()?,
+                Opcode::Print => self.print()?,
+                Opcode::Pop => {
+                    self.pop()?;
+                }
+                Opcode::Nil => self.nil(),
+            };
         }
-    }
 
-    fn ret(&mut self) {
-        if let Some(frame) = self.frames.pop() {
-            let result = self.pop();
-            self.stack.truncate(*frame.stack_start());
-            self.push(result);
-        } else {
-            panic!("Cannot return from top-level.");
-        }
+        Ok(())
     }
 
     fn constant(&mut self) {
-        let constant = self.read_constant();
+        let constant = self.read_constant().clone();
         self.push(constant);
     }
 
-    fn add(&mut self) {
-        let b = self.pop();
-        let a = self.pop();
+    fn add(&mut self) -> RunResult<()> {
+        let b = self.pop()?;
+        let a = self.pop()?;
         self.push(a + b);
+        Ok(())
     }
 
-    fn subtract(&mut self) {
-        let b = self.pop();
-        let a = self.pop();
+    fn subtract(&mut self) -> RunResult<()> {
+        let b = self.pop()?;
+        let a = self.pop()?;
         self.push(a - b);
+        Ok(())
     }
 
-    fn multiply(&mut self) {
-        let b = self.pop();
-        let a = self.pop();
+    fn multiply(&mut self) -> RunResult<()> {
+        let b = self.pop()?;
+        let a = self.pop()?;
         self.push(a * b);
+        Ok(())
     }
 
-    fn divide(&mut self) {
-        let b = self.pop();
-        let a = self.pop();
+    fn divide(&mut self) -> RunResult<()> {
+        let b = self.pop()?;
+        let a = self.pop()?;
         self.push(a / b);
+        Ok(())
     }
 
-    fn equal(&mut self) {
-        let b = self.pop();
-        let a = self.pop();
+    fn equal(&mut self) -> RunResult<()> {
+        let b = self.pop()?;
+        let a = self.pop()?;
         self.push((a == b).into());
+        Ok(())
     }
 
-    fn greater(&mut self) {
-        let b = self.pop();
-        let a = self.pop();
+    fn greater(&mut self) -> RunResult<()> {
+        let b = self.pop()?;
+        let a = self.pop()?;
         self.push((a > b).into());
+        Ok(())
     }
 
-    fn less(&mut self) {
-        let b = self.pop();
-        let a = self.pop();
+    fn less(&mut self) -> RunResult<()> {
+        let b = self.pop()?;
+        let a = self.pop()?;
         self.push((a < b).into());
+        Ok(())
     }
 
-    fn not(&mut self) {
-        let a = self.pop();
-        self.push(bool::into(!bool::from(a)));
+    fn not(&mut self) -> RunResult<()> {
+        let a = self.pop()?;
+        self.push(bool::into(!bool::from(&a)));
+        Ok(())
     }
 
-    fn negate(&mut self) {
-        let a = self.pop();
+    fn negate(&mut self) -> RunResult<()> {
+        let a = self.pop()?;
         self.push(-a);
+        Ok(())
     }
 
-    fn define_global(&mut self) {
-        let name = self.read_constant().as_string();
-        let value = self.peek();
-        self.globals.insert(name, value);
-        self.pop();
-    }
-
-    fn get_global(&mut self) {
-        let name = self.read_constant().as_string();
-        let value = self.globals.get(&name).cloned();
-
-        self.push(value.unwrap());
-    }
-
-    fn set_global(&mut self) {
-        let name = self.read_constant().as_string();
-        let peek = self.peek();
-
-        if let Some(global) = self.globals.get_mut(&name) {
-            *global = peek;
+    fn ret(&mut self) -> RunResult<()> {
+        if let Some(frame) = self.frames.pop() {
+            let result = self.pop()?;
+            self.stack.truncate(*frame.stack_start());
+            self.push(result);
+            Ok(())
         } else {
-            panic!("No global with name: {}", name);
+            Err(RuntimeError::ReturnFromTopLevel)
         }
     }
 
-    fn jump_if_false(&mut self) {
+    fn define_global(&mut self) -> RunResult<()> {
+        if let Some(value) = self.pop()? {
+            let var_name = self.read_string().to_string();
+            self.globals.insert(var_name, value);
+            Ok(())
+        } else {
+            Err(RuntimeError::BadStackIndex(10, self.stack.len())) // TODO 10
+        }
+    }
+
+    fn get_global(&mut self) -> RunResult<()> {
+        let name = self.read_constant().as_string().clone();
+
+        if let Some(value) = self.globals.get(&name).cloned() {
+            self.push(value);
+            Ok(())
+        } else {
+            Err(RuntimeError::UndefinedGlobal(name))
+        }
+    }
+
+    fn set_global(&mut self) -> RunResult<()> {
+        let name = self.read_constant().as_string().clone();
+
+        if self.globals.contains_key(&name) {
+            let value = self.peek()?.clone();
+            self.globals.insert(name, value);
+            Ok(())
+        } else {
+            Err(RuntimeError::UndefinedGlobal(name))
+        }
+    }
+
+    fn jump_if_false(&mut self) -> RunResult<()> {
         let offset = self.read_short();
 
-        if !bool::from(self.peek()) {
+        if !bool::from(self.peek()?) {
             *self.frame_mut().ip_mut() += offset as usize;
         }
+        Ok(())
     }
 
-    fn jump(&mut self) {
+    fn jump(&mut self) -> RunResult<()> {
         let offset = self.read_short();
         *self.frame_mut().ip_mut() += offset as usize;
+        Ok(())
     }
 
-    fn print(&mut self) {
-        let popped = self.pop();
-        println!("{}", popped);
+    fn print(&mut self) -> RunResult<()> {
+        let popped = self.pop()?;
+        println!("{:?}", popped);
+        Ok(())
     }
 
     fn nil(&mut self) {
         self.push(Value::Nil);
     }
 
-    fn get_local(&mut self) {
+    fn get_local(&mut self) -> RunResult<()> {
         let start = *self.frame().stack_start();
         let slot = self.read_byte() as usize;
-        let value = self.stack[start + slot].clone();
-        self.push(value);
+        let index = start + slot;
+
+        if let Some(value) = self.stack.get(index).cloned() {
+            self.stack.push(value);
+            Ok(())
+        } else {
+            Err(RuntimeError::BadStackIndex(index, self.stack.len()))
+        }
     }
 
-    fn set_local(&mut self) {
-        let value = self.peek();
+    fn set_local(&mut self) -> RunResult<()> {
+        let value = self.peek()?.clone();
         let start = *self.frame().stack_start();
         let slot = self.read_byte() as usize;
         self.stack[start + slot] = value;
+        Ok(())
     }
 
     fn call_instruction(&mut self) {
         let arity = self.read_byte();
-        let frame_start = self.stack.len() - (arity + 1) as usize;
-        let callee = self.stack[frame_start].clone();
-
-        self.call_value(callee, arity);
+        self.call_value(arity);
     }
 
     fn closure(&mut self) {
-        let fun = self.read_constant().as_function();
-        let closure = GreenClosure::new(fun);
-
-        self.push(Value::Obj(Object::Closure(closure)));
+        match self.read_constant().clone() {
+            Value::Function(fun) => {
+                let closure = GreenClosure::new(fun);
+                let clos = self.alloc(closure);
+                self.push(Value::Closure(clos));
+            }
+            _ => todo!(), // TODO
+        }
     }
 
-    fn call(&mut self, closure: GreenClosure, arity: u8) {
+    fn call(&mut self, closure: Gc<GreenClosure>, arity: u8) {
         if arity != *closure.function.arity() {
-            panic!(
-                "Expected {} arguments but got {}.",
-                closure.function.arity(),
-                arity
+            panic!( // TODO Error
+                    "Expected {} arguments but got {}.",
+                    closure.function.arity(),
+                    arity
             );
         }
 
@@ -237,22 +240,19 @@ impl VM {
         self.frames.push(CallFrame::new(closure, frame_start));
     }
 
-    fn call_value(&mut self, callee: Value, arity: u8) {
-        match callee.as_object() {
-            Object::Closure(c) => {
-                self.call(c, arity);
-            }
-            Object::Class(c) => {
-                let instance = Value::Obj(Object::Instance(Instance::new(c)));
+    pub(crate) fn call_value(&mut self, arity: u8) {
+        let frame_start = self.stack.len() - (arity + 1) as usize;
+        let callee = self.stack[frame_start].clone();
 
-                // let frame_start = last - (arity + 1) as usize;
+        match callee {
+            Value::Closure(c) => self.call(c, arity),
+            Value::Class(c) => {
+                let instance = Value::Instance(self.alloc(Instance::new(c)));
 
-                let stack_top = self.stack.len() - (arity + 1) as usize;
-                // let stack_top = 2 as usize;
-                self.push(instance);
-                // self.stack[stack_top] = instance;
+                let l = self.stack.len();
+                self.stack[l - usize::from(arity) - 1] = instance;
             }
-            _ => panic!("Can only call functions"),
+            _ => panic!("Can only call functions"), // TODO Error
         }
     }
 
@@ -261,100 +261,94 @@ impl VM {
         *self.frame_mut().ip_mut() -= offset as usize;
     }
 
-    fn new_array(&mut self) {
+    fn new_array(&mut self) -> RunResult<()> {
         // Stack before: [item1, item2, ..., itemN] and after: [array]
         let mut array = vec![];
-        let mut item_count = self.read_byte();
+        let item_count = self.read_byte();
 
         // Move items from stack to array
         for _ in 0..item_count {
-            array.push(self.pop());
+            array.push(self.pop()?);
         }
 
         array.reverse();
 
-        self.push(Value::Obj(Object::Array(array)))
+        self.push(Value::Array(array));
+        Ok(())
     }
 
-    fn index_subscript(&mut self) {
+    fn index_subscript(&mut self) -> RunResult<()> {
         // Stack before: [array, index] and after: [index(array, index)]
-        let index = self.pop().as_number();
-        let array = self.pop().as_array();
+        let index = self.pop()?.as_number();
+        let array = self.pop()?.as_array();
 
         // Stack before: [array, index] and after: [index(array, index)]
         let result = array[index as usize].clone();
         self.push(result);
+        Ok(())
     }
 
-    fn store_subscript(&mut self) {
+    fn store_subscript(&mut self) -> RunResult<()> {
         // Stack before: [array, index, item] and after: [item]
-        let item = self.pop();
-        let index = self.pop().as_number();
-        let mut array = self.pop().as_array();
+        let item = self.pop()?;
+        let index = self.pop()?.as_number();
+        let mut array = self.pop()?.as_array();
 
         // Stack before: [array, index] and after: [index(array, index)]
         array[index as usize] = item;
         let result = array.clone();
-        self.push(Value::Obj(Object::Array(result)));
+        self.push(Value::Array(result));
+
+        Ok(())
     }
 
     fn class(&mut self) {
         let name = self.read_constant().as_string();
-        let class = Value::Obj(Object::Class(Class::new(name)));
+        let cls = Class::new(name.clone());
+        let class = Value::Class(self.alloc(cls));
         self.push(class);
     }
 
-    fn get_property(&mut self) {
-        if !self.peek().is_instance() {
-            panic!("Only instances have properties.");
+    fn get_property(&mut self) -> RunResult<()> {
+        if !self.peek()?.is_instance() {
+            panic!("Only instances have properties."); // TODO Error
         }
 
-        let instance = self.pop().as_instance();
-        let name = self.read_constant().as_string();
-
-        if let Some(value) = instance.fields.get(&name) {
-            self.push(value.clone());
-        } else {
-            panic!("Undefined property '{}'.", name);
-        }
-    }
-
-    fn set_property(&mut self) {
-        let value = self.stack.pop().unwrap();
-
-        // let mut instance = self.stack.pop().unwrap().as_instance();
         match self.stack.pop() {
-            None => {}
-            Some(Value::Obj(Object::Instance(mut i))) => {
-                let var_str = self.read_string();
+            Some(Value::Instance(i)) => {
+                let name = self.read_string();
 
-                i.fields.insert(var_str.to_string(), value.clone());
-                self.push(value);
+                if let Some(value) = i.fields.get(name) {
+                    self.push(value.clone());
+                    Ok(())
+                } else {
+                    Err(RuntimeError::UndefinedProperty(name.to_string()))
+                }
             }
-            _ => todo!(),
+            _ => todo!(), // TODO
         }
+    }
 
+    fn set_property(&mut self) -> RunResult<()> {
         // Stack before: [instance, value, property] and after: [index(array, index)] TODO After
-        // let property = self.read_constant().as_string();
-        //
-        // let mut instance = self.peek_offset(1).as_instance();
-        // let value = self.peek();
-        //
-        // instance.set_property(&property, value);
-        // println!("{:?}", &instance);
-        //
-        // let value2 = self.pop();
-        // self.pop();
-        // self.push(value2);
+        let value = self.pop()?;
+
+        let mut instance = self.pop()?.as_instance()?;
+        let property = self.read_string();
+
+        instance.fields.insert(property.to_string(), value.clone());
+        self.push(value);
+
+        Ok(())
     }
 
-    fn read_string(&mut self) -> String {
-       self.read_constant().as_string()
+    fn read_string(&mut self) -> &String {
+        self.read_constant().as_string()
     }
 
-    fn read_constant(&mut self) -> Value {
+    fn read_constant(&mut self) -> &Value {
         let constant_index = self.read_byte();
-        self.current_chunk_mut().constants()[constant_index as usize].clone()
+        self.current_chunk().read_constant(constant_index.into())
     }
 
     fn read_byte(&mut self) -> u8 {
@@ -379,29 +373,29 @@ impl VM {
         self.frames.is_empty()
     }
 
-    fn push(&mut self, value: Value) {
+    pub(crate) fn push(&mut self, value: Value) {
         self.stack.push(value);
     }
 
-    fn peek(&mut self) -> Value {
-        self.stack.last().expect("stack to be nonempty").clone()
+    fn peek(&mut self) -> RunResult<&Value> {
+        self.stack.last().ok_or(RuntimeError::StackEmpty)
     }
 
     fn peek_offset(&mut self, offset: usize) -> Value {
-        let index = self.stack.len() - 1 - offset;
+        let index = self.stack.len() - 1 - offset; // TODO Error
         self.stack[index as usize].clone()
     }
 
-    fn pop(&mut self) -> Value {
-        self.stack.pop().expect("Failed to pop value from stack")
+    fn pop(&mut self) -> RunResult<Value> {
+        self.stack.pop().ok_or(RuntimeError::StackEmpty)
     }
 
     fn frame(&self) -> &CallFrame {
-        self.frames.last().expect("frames to be nonempty")
+        self.frames.last().expect("frames to be nonempty") // TODO Error
     }
 
     fn frame_mut(&mut self) -> &mut CallFrame {
-        self.frames.last_mut().expect("frames to be nonempty")
+        self.frames.last_mut().expect("frames to be nonempty") // TODO Error
     }
 
     fn current_chunk(&self) -> &Chunk {
@@ -410,5 +404,30 @@ impl VM {
 
     fn current_chunk_mut(&mut self) -> &mut Chunk {
         self.frame_mut().closure_mut().function.chunk_mut()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::compiler::object::GreenFunction;
+
+    #[test]
+    fn it_works() {
+        // let mut vm = VM::new();
+        //
+        // let mut function = GreenFunction::new();
+        // let chunk = function.chunk_mut();
+        //
+        // chunk.write(Opcode::Class, 0);
+        //
+        // chunk.add_constant(Value::String("Point".to_string()))
+        // chunk.write(Opcode::DefineGlobal, 0);
+        //
+        // let closure = GreenClosure::new(function);
+        // vm.push(Value::closure(closure.clone()));
+        // vm.call_value(Value::closure(closure.clone()), 0);
+        //
+        // vm.run().unwrap();
     }
 }

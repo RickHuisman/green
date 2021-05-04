@@ -1,8 +1,9 @@
 use crate::compiler::chunk::Chunk;
-use std::fmt;
-use std::fmt::{Display, Formatter};
 use crate::compiler::value::Value;
 use std::collections::HashMap;
+use std::fmt;
+use std::fmt::{Display, Formatter};
+use crate::vm::obj::Gc;
 
 #[derive(Debug, Clone)]
 pub enum Object {
@@ -36,11 +37,11 @@ pub enum GreenFunctionType {
 
 #[derive(Debug, Clone)]
 pub struct GreenClosure {
-    pub function: GreenFunction,
+    pub function: Gc<GreenFunction>,
 }
 
 impl GreenClosure {
-    pub fn new(function: GreenFunction) -> GreenClosure {
+    pub fn new(function: Gc<GreenFunction>) -> GreenClosure {
         GreenClosure { function }
     }
 }
@@ -82,6 +83,12 @@ impl GreenFunction {
     }
 }
 
+impl fmt::Display for GreenFunction {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "#<fun {}/{}>", self.name, self.arity)
+    }
+}
+
 impl Into<Object> for &str {
     fn into(self) -> Object {
         Object::String(self.to_string()) // TODO Object(String) should be Object(&str)
@@ -105,17 +112,23 @@ impl Class {
     }
 }
 
+impl fmt::Display for Class {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.name)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Instance {
-    pub class: Class,
+    pub class: Gc<Class>,
     pub fields: HashMap<String, Value>,
 }
 
 impl Instance {
-    pub fn new(class: Class) -> Self {
+    pub fn new(class: Gc<Class>) -> Self {
         Instance {
             class,
-            fields: HashMap::new()
+            fields: HashMap::new(),
         }
     }
 

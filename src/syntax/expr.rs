@@ -5,6 +5,8 @@ use crate::compiler::object::GreenFunctionType;
 use crate::compiler::opcode::Opcode;
 use crate::compiler::value::Value;
 use crate::syntax::token::TokenType;
+use crate::compiler::opcode::Opcode::GetGlobal;
+use crate::vm::obj::Gc;
 
 pub trait Compile {
     fn compile(&self, compiler: &mut Compiler);
@@ -287,7 +289,7 @@ impl BinaryOperator {
             TokenType::LessThanEqual => BinaryOperator::LessThanEqual,
             TokenType::GreaterThan => BinaryOperator::GreaterThan,
             TokenType::GreaterThanEqual => BinaryOperator::GreaterThanEqual,
-            _ => return None
+            _ => return None,
         };
 
         Some(op)
@@ -602,17 +604,17 @@ impl Compile for FunctionExpr {
         }
 
         // Compile body.
-        self.declaration.body.compile(compiler); // TODO works???
-                                                 // compiler.compile_expr(&self.declaration.body);
+        self.declaration.body.compile(compiler);
 
         // Create the function object.
-        let function = compiler.end_compiler();
+        let fun = compiler.end_compiler();
 
         compiler.emit(Opcode::Closure);
 
         let constant_id = compiler
             .current_chunk()
-            .add_constant(Value::function(function));
+            .add_constant(Value::Function(Gc::new(fun)));
+            // .add_constant(Value::Function((compiler.alloc)(fun)));
 
         compiler.emit_byte(constant_id);
 
@@ -747,9 +749,7 @@ impl Compile for ArrayExpr {
         }
 
         compiler.emit(Opcode::NewArray);
-        let exprs_len = self.exprs
-            .as_ref()
-            .map_or_else(|| 0, |a| a.len());
+        let exprs_len = self.exprs.as_ref().map_or_else(|| 0, |a| a.len());
         compiler.emit_byte(exprs_len as u8);
     }
 }
@@ -758,12 +758,16 @@ impl Compile for ArrayExpr {
 pub struct SubscriptExpr {
     callee: Expr, // TODO Naming???
     index: Expr,
-    expr: Option<Expr> // TODO Comment
+    expr: Option<Expr>, // TODO Comment
 }
 
 impl SubscriptExpr {
-    pub fn new(callee: Expr, index: Expr,  expr: Option<Expr>) -> SubscriptExpr {
-        SubscriptExpr { callee, index, expr }
+    pub fn new(callee: Expr, index: Expr, expr: Option<Expr>) -> SubscriptExpr {
+        SubscriptExpr {
+            callee,
+            index,
+            expr,
+        }
     }
 }
 

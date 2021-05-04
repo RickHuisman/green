@@ -1,16 +1,12 @@
 use crate::compiler::chunk::Chunk;
 use crate::compiler::instance::CompilerInstance;
 use crate::compiler::local::Local;
-use crate::compiler::module_resolver::get_module_ast;
 use crate::compiler::object::{GreenFunction, GreenFunctionType};
 use crate::compiler::opcode::Opcode;
 use crate::compiler::value::Value;
-use crate::syntax::expr::{
-    BinaryExpr, BinaryOperator, BlockExpr, CallExpr, Compile, Expr, ExprKind, FunctionExpr,
-    GroupingExpr, IfElseExpr, IfExpr, ImportExpr, LiteralExpr, ReturnExpr, UnaryExpr,
-    UnaryOperator, VarAssignExpr, VarGetExpr, VarSetExpr, Variable, WhileExpr,
-};
 use crate::syntax::parser::ModuleAst;
+use crate::syntax::expr::{LiteralExpr, Expr, Compile, Variable};
+use crate::vm::obj::Gc;
 
 pub struct Compiler {
     pub(crate) current: CompilerInstance,
@@ -23,7 +19,9 @@ impl Compiler {
         }
     }
 
-    pub fn compile_module(module: ModuleAst) -> GreenFunction {
+    pub fn compile(
+        module: ModuleAst,
+    ) -> GreenFunction {
         let mut compiler = Compiler::new();
 
         for expr in module.exprs() {
@@ -178,7 +176,7 @@ impl Compiler {
     }
 
     pub(crate) fn emit_string(&mut self, s: &str) {
-        self.emit_constant(Value::Obj(s.into()));
+        self.emit_constant(Value::String(s.to_string()));
     }
 
     pub(crate) fn emit_constant(&mut self, value: Value) {
@@ -212,6 +210,6 @@ mod tests {
         end
         "#;
         let module = parse_source(input);
-        let chunk = Compiler::compile_module(module);
+        let chunk = Compiler::compile(module);
     }
 }

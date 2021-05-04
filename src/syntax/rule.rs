@@ -1,5 +1,9 @@
 use crate::error::ParserError;
-use crate::syntax::expr::{BinaryExpr, BinaryOperator, CallExpr, Expr, ExprKind, GroupingExpr, LiteralExpr, UnaryExpr, UnaryOperator, ArrayExpr, SubscriptExpr, Variable, VarSetExpr, VarGetExpr, GetExpr, SetExpr};
+use crate::syntax::expr::{
+    ArrayExpr, BinaryExpr, BinaryOperator, CallExpr, Expr, ExprKind, GetExpr, GroupingExpr,
+    LiteralExpr, SetExpr, SubscriptExpr, UnaryExpr, UnaryOperator, VarGetExpr, VarSetExpr,
+    Variable,
+};
 use crate::syntax::parser::GreenParser;
 use crate::syntax::token::{Keyword, Token, TokenType};
 use std::collections::HashMap;
@@ -154,8 +158,8 @@ pub enum Precedence {
     // + -
     Factor = 7,
     // * /
-    Unary = 8, // ! -
-    Call = 9,  // x()
+    Unary = 8,      // ! -
+    Call = 9,       // x()
     Subscript = 10, // [] .
 }
 
@@ -219,7 +223,11 @@ impl InfixParser for InfixOperatorParser {
         // Assume left associativity.
         let right = parser.parse_precedence(self.precedence)?;
 
-        let binary = BinaryExpr::new(left, right, BinaryOperator::from_token(token.token_type).unwrap());
+        let binary = BinaryExpr::new(
+            left,
+            right,
+            BinaryOperator::from_token(token.token_type).unwrap(),
+        );
 
         Ok(Expr::new(ExprKind::Binary(binary)))
     }
@@ -275,9 +283,13 @@ impl InfixParser for SubscriptParser {
         let expr = if parser.match_(TokenType::Equal)? {
             parser.consume()?;
             Some(parser.parse_expression()?)
-        } else { None };
+        } else {
+            None
+        };
 
-        Ok(Expr::new(ExprKind::Subscript(SubscriptExpr::new(left, index, expr))))
+        Ok(Expr::new(ExprKind::Subscript(SubscriptExpr::new(
+            left, index, expr,
+        ))))
     }
 
     fn get_precedence(&self) -> Precedence {
@@ -366,7 +378,11 @@ impl InfixParser for DotParser {
 
         if parser.match_(TokenType::Equal)? {
             let value = parser.parse_expression()?;
-            Ok(Expr::set_property(SetExpr::new(left, value, property.to_string())))
+            Ok(Expr::set_property(SetExpr::new(
+                left,
+                value,
+                property.to_string(),
+            )))
         } else {
             Ok(Expr::get_property(GetExpr::new(left, property.to_string())))
         }
